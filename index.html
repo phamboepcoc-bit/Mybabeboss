@@ -316,18 +316,10 @@
     /* ── Snowflakes ── */
     #snow-container {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      pointer-events: none; z-index: 9999; overflow: hidden;
+      pointer-events: none; z-index: -1; overflow: hidden;
     }
-    .snowflake {
-      position: absolute; top: -10px; background: white; border-radius: 50%;
-      opacity: 0.8; animation: fall linear infinite;
-      box-shadow: 0 0 5px rgba(255,255,255,0.8);
-    }
-    @keyframes fall {
-      0% { transform: translateY(-10vh) translateX(0); opacity: 0; }
-      10% { opacity: 0.9; }
-      90% { opacity: 0.9; }
-      100% { transform: translateY(110vh) translateX(var(--sway)); opacity: 0; }
+    .snowflake-static {
+      position: absolute; color: var(--a4);
     }
   </style>
 </head>
@@ -1289,26 +1281,39 @@ TT\tLớp học phần\tTên học phần\tSố TC\tLoại HP\tThứ\tTiết\tPh
 })();
 
 // Snowflakes generator
-function createSnowflakes() {
+function createStaticSnowflakes() {
   const container = document.createElement('div');
   container.id = 'snow-container';
   document.body.appendChild(container);
   
-  const count = 60;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M12 2l3 3M12 2l-3 3M12 22l3-3M12 22l-3-3M3.34 17l17.32-10M3.34 17l3.75-1.5M3.34 17l1.5 3.75M20.66 7l-3.75 1.5M20.66 7l-1.5-3.75M3.34 7l17.32 10M3.34 7l1.5-3.75M3.34 7l3.75 1.5M20.66 17l-1.5 3.75M20.66 17l-3.75-1.5"/></svg>`;
+  
+  const count = 18;
   for (let i = 0; i < count; i++) {
     const snow = document.createElement('div');
-    snow.classList.add('snowflake');
-    const size = Math.random() * 4 + 2; 
+    snow.classList.add('snowflake-static');
+    snow.innerHTML = svg;
+    
+    const size = Math.random() * 120 + 40; 
     snow.style.width = size + 'px';
     snow.style.height = size + 'px';
-    snow.style.left = Math.random() * 100 + 'vw';
-    snow.style.animationDuration = Math.random() * 4 + 3 + 's'; 
-    snow.style.animationDelay = Math.random() * 5 + 's';
-    snow.style.setProperty('--sway', (Math.random() * 100 - 50) + 'px');
+    
+    // Spread evenly across the page but focus on left/right margins
+    const leftOrRight = Math.random() > 0.5;
+    if (leftOrRight) {
+      snow.style.left = (Math.random() * 20) + 'vw';
+    } else {
+      snow.style.right = (Math.random() * 20) + 'vw';
+    }
+    
+    snow.style.top = (Math.random() * 100) + 'vh';
+    snow.style.transform = `rotate(${Math.random() * 360}deg)`;
+    snow.style.opacity = Math.random() * 0.04 + 0.02; // Very subtle
+    
     container.appendChild(snow);
   }
 }
-window.addEventListener('DOMContentLoaded', createSnowflakes);
+window.addEventListener('DOMContentLoaded', createStaticSnowflakes);
 </script>
 </body>
 </html>
