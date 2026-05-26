@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TKB → Google Calendar | Dịch Thời Khóa Biểu</title>
+  <meta name="description" content="Chuyển thời khóa biểu đại học Việt Nam sang Google Calendar chỉ với một cú paste. Hỗ trợ ĐH Luật TP.HCM và nhiều trường khác.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #07071a;
+      --bg2: #0d0d28;
+      --glass: rgba(255,255,255,0.04);
+      --glass-b: rgba(255,255,255,0.09);
+      --a1: #6c63ff;
+      --a2: #4f8ef7;
+      --a3: #ff6b9d;
+      --a4: #4ecca3;
+      --txt: #eeeeff;
+      --txt2: #8890b5;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated BG ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 40%, rgba(108,99,255,.18) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 60% at 85% 20%, rgba(79,142,247,.16) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 50% 90%, rgba(255,107,157,.10) 0%, transparent 70%);
+      z-index: -1;
+      animation: bgpulse 8s ease-in-out infinite alternate;
+    }
+    @keyframes bgpulse {
+      from { opacity: 1; }
+      to   { opacity: .75; }
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 18px 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--glass-b);
+      backdrop-filter: blur(24px);
+      background: rgba(7,7,26,.75);
+      position: sticky; top: 0; z-index: 200;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 19px; font-weight: 800;
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .logo-ic {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; -webkit-text-fill-color: white; flex-shrink: 0;
+    }
+    .header-tag {
+      font-size: 12px; color: var(--txt2);
+      background: var(--glass); border: 1px solid var(--glass-b);
+      padding: 4px 12px; border-radius: 20px;
+    }
+
+    /* ── Container ── */
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 80px; }
+
+    /* ── Hero ── */
+    .hero { text-align: center; padding: 56px 20px 36px; }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.6rem); font-weight: 900; line-height: 1.1;
+      letter-spacing: -1px; margin-bottom: 16px;
+    }
+    .hero h1 .plain { color: rgba(238,238,255,.85); }
+    .hero h1 .grad {
+      background: linear-gradient(135deg, var(--a1), var(--a2), var(--a3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero p { font-size: 17px; color: var(--txt2); max-width: 520px; margin: 0 auto 36px; line-height: 1.7; }
+
+    /* ── Step bar ── */
+    .steps { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 44px; }
+    .step { display: flex; align-items: center; gap: 10px; }
+    .snum {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 2px solid var(--glass-b);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--txt2);
+      transition: all .35s ease;
+    }
+    .step.active .snum {
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      border-color: transparent; color: white;
+      box-shadow: 0 0 24px rgba(108,99,255,.5);
+    }
+    .step.done .snum { background: var(--a4); border-color: transparent; color: #07071a; }
+    .slabel { font-size: 13px; font-weight: 600; color: var(--txt2); }
+    .step.active .slabel { color: var(--txt); }
+    .scon { width: 56px; height: 2px; background: var(--glass-b); margin: 0 6px; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--glass); border: 1px solid var(--glass-b);
+      border-radius: 20px; padding: 28px 32px;
+      backdrop-filter: blur(20px); margin-bottom: 20px;
+    }
+    .ctitle { font-size: 17px; font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 9px; }
+    .cdesc  { font-size: 13px; color: var(--txt2); margin-bottom: 18px; line-height: 1.6; }
+
+    /* ── Form ── */
+    .frow { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+    .fg { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+    label { font-size: 11px; font-weight: 700; color: var(--txt2); text-transform: uppercase; letter-spacing: .06em; }
+    input, select, textarea {
+      background: rgba(255,255,255,.05); border: 1px solid var(--glass-b);
+      border-radius: 11px; padding: 11px 14px;
+      color: var(--txt); font-family: 'Inter', sans-serif; font-size: 13px;
+      outline: none; transition: all .25s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--a1); background: rgba(108,99,255,.09);
+      box-shadow: 0 0 0 3px rgba(108,99,255,.18);
+    }
+    input[type="date"] { color-scheme: dark; }
+    select option { background: #1a1a35; }
+    textarea {
+      resize: vertical; min-height: 270px; font-size: 12.5px;
+      line-height: 1.65; font-family: 'Courier New', monospace;
+    }
+    textarea::placeholder { color: rgba(136,144,176,.42); font-family: 'Inter', sans-serif; font-size: 12px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 22px; border-radius: 11px; border: none;
+      cursor: pointer; font-family: 'Inter', sans-serif;
+      font-size: 14px; font-weight: 600; transition: all .25s;
+      text-decoration: none;
+    }
+    .btn-p {
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      color: white; box-shadow: 0 4px 18px rgba(108,99,255,.35);
+    }
+    .btn-p:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(108,99,255,.55); }
+    .btn-s {
+      background: var(--glass); border: 1px solid var(--glass-b); color: var(--txt);
+    }
+    .btn-s:hover { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.18); }
+    .btn-g {
+      background: linear-gradient(135deg, var(--a4), #1aab7a);
+      color: #07071a; font-weight: 700;
+    }
+    .btn-g:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(78,204,163,.45); }
+    .btn-lg { padding: 14px 30px; font-size: 15px; }
+
+    /* ── Tabs ── */
+    .tabbar {
+      display: flex; gap: 4px; background: rgba(0,0,0,.3);
+      border-radius: 11px; padding: 4px; margin-bottom: 18px;
+    }
+    .tbtn {
+      flex: 1; padding: 9px 14px; border-radius: 8px; border: none;
+      background: transparent; color: var(--txt2);
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all .2s;
+    }
+    .tbtn.active { background: rgba(108,99,255,.28); color: white; font-weight: 700; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Alert ── */
+    .alert {
+      padding: 12px 16px; border-radius: 11px; font-size: 13px;
+      margin-bottom: 14px; display: flex; align-items: flex-start; gap: 9px; line-height: 1.5;
+    }
+    .al-info { background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.3); color: #88b8ff; }
+    .al-warn { background: rgba(255,217,61,.1); border: 1px solid rgba(255,217,61,.3); color: #ffd93d; }
+    .al-ok   { background: rgba(78,204,163,.1); border: 1px solid rgba(78,204,163,.3); color: var(--a4); }
+
+    /* ── Sections ── */
+    .sec { display: none; }
+    .sec.active { display: block; animation: fadeUp .4s ease; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+
+    /* ── Stats ── */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); gap: 14px; margin-bottom: 22px; }
+    .scard { background: rgba(255,255,255,.04); border: 1px solid var(--glass-b); border-radius: 14px; padding: 18px; text-align: center; }
+    .sval {
+      font-size: 30px; font-weight: 900;
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .slb { font-size: 11px; color: var(--txt2); margin-top: 3px; }
+
+    /* ── Subject list ── */
+    .sublist { display: flex; flex-direction: column; gap: 10px; }
+    .subitem {
+      background: rgba(255,255,255,.03); border: 1px solid var(--glass-b);
+      border-radius: 13px; padding: 14px 18px;
+      display: flex; align-items: center; gap: 14px;
+      transition: all .2s;
+    }
+    .subitem:hover { background: rgba(255,255,255,.06); border-color: rgba(108,99,255,.28); }
+    .subcol { width: 4px; height: 46px; border-radius: 4px; flex-shrink: 0; }
+    .subname { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .submeta { font-size: 12px; color: var(--txt2); display: flex; gap: 14px; flex-wrap: wrap; }
+    .tag {
+      display: inline-flex; align-items: center; padding: 2px 9px;
+      border-radius: 20px; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .tag-b { background: rgba(79,142,247,.15); color: var(--a2); }
+    .tag-g { background: rgba(78,204,163,.15); color: var(--a4); }
+
+    /* ── Week calendar ── */
+    .wkcal-wrap { overflow-x: auto; }
+    .wkcal {
+      display: grid; grid-template-columns: repeat(6, 1fr);
+      gap: 8px; min-width: 680px;
+    }
+    .wkday-hd {
+      text-align: center; font-size: 11px; font-weight: 700; color: var(--txt2);
+      padding: 8px; background: rgba(108,99,255,.15);
+      border-radius: 10px 10px 0 0;
+      border-bottom: 2px solid rgba(108,99,255,.35);
+    }
+    .wkday-col {
+      background: rgba(0,0,0,.2); border-radius: 0 0 10px 10px;
+      padding: 6px; min-height: 90px;
+    }
+    .wkblk {
+      border-radius: 7px; padding: 8px 10px; margin-bottom: 6px;
+      cursor: default; transition: transform .15s;
+    }
+    .wkblk:hover { transform: scale(1.02); }
+    .wkblk-name { font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wkblk-time { font-size: 10px; opacity: .65; margin-top: 2px; }
+    .wkblk-room { font-size: 10px; opacity: .55; }
+    .wkempty { text-align: center; color: rgba(136,144,176,.25); font-size: 12px; padding: 22px 0; }
+
+    /* ── Preview table ── */
+    .ptable { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ptable th {
+      background: rgba(108,99,255,.18); padding: 9px 13px;
+      text-align: left; font-size: 11px; font-weight: 700;
+      color: var(--txt2); text-transform: uppercase; letter-spacing: .05em;
+    }
+    .ptable td { padding: 9px 13px; border-bottom: 1px solid var(--glass-b); vertical-align: middle; }
+    .ptable tr:last-child td { border-bottom: none; }
+    .ptable tr:hover td { background: rgba(255,255,255,.03); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 7px;
+      border-radius: 11px; background: rgba(108,99,255,.2);
+      color: var(--a1); font-size: 11px; font-weight: 700;
+    }
+
+    /* ── Import steps ── */
+    .imp-steps { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+    .imp-step {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 14px 16px; background: rgba(255,255,255,.03);
+      border-radius: 11px; border: 1px solid var(--glass-b);
+    }
+    .imp-n {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800;
+    }
+    .imp-title { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+    .imp-desc  { font-size: 12px; color: var(--txt2); line-height: 1.5; }
+
+    /* ── Spinner ── */
+    .spin {
+      width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.25);
+      border-top-color: white; border-radius: 50%;
+      animation: sp .7s linear infinite;
+    }
+    @keyframes sp { to { transform: rotate(360deg); } }
+
+    /* ── Manual entry ── */
+    .me-row {
+      background: rgba(255,255,255,.03); border: 1px solid var(--glass-b);
+      border-radius: 12px; padding: 16px; margin-bottom: 10px;
+    }
+    .me-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .me-lbl { font-size: 12px; font-weight: 700; color: var(--txt2); }
+    .me-del { background: none; border: none; color: var(--txt2); cursor: pointer; font-size: 20px; line-height:1; }
+    .me-del:hover { color: #ff6b6b; }
+
+    /* Responsive */
+    @media(max-width:700px){
+      header { padding: 14px 18px; }
+      .wrap  { padding: 0 12px 60px; }
+      .card  { padding: 18px 16px; }
+      .frow  { flex-direction: column; }
+      .steps { gap: 0; }
+      .scon  { width: 28px; }
+      .slabel{ display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<header>
+  <div class="logo">
+    <div class="logo-ic">📅</div>
+    TKB Converter
+  </div>
+  <div class="header-tag">ĐH Luật TP.HCM &amp; các trường khác</div>
+</header>
+
+<div class="wrap">
+
+  <!-- ══ HERO ══ -->
+  <div class="hero">
+    <h1>
+      <span class="plain">Dịch </span><span class="grad">Thời Khóa Biểu</span><br>
+      <span class="plain">sang Google Calendar</span>
+    </h1>
+    <p>Copy toàn bộ TKB từ PDF → Paste vào đây → Tải file ICS → Import vào Google Calendar. Chỉ vậy thôi! 🎉</p>
+
+    <!-- Step bar -->
+    <div class="steps">
+      <div class="step active" id="si1"><div class="snum">1</div><div class="slabel">Nhập TKB</div></div>
+      <div class="scon"></div>
+      <div class="step" id="si2"><div class="snum">2</div><div class="slabel">Xem lại</div></div>
+      <div class="scon"></div>
+      <div class="step" id="si3"><div class="snum">3</div><div class="slabel">Xuất Calendar</div></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       STEP 1 – INPUT
+  ══════════════════════════════════════════ -->
+  <div class="sec active" id="sec1">
+
+    <div class="card">
+      <div class="ctitle">⚙️ Cấu hình học kỳ</div>
+      <div class="cdesc">Nhập thông tin học kỳ để xác định ngày tháng chính xác cho lịch học.</div>
+      <div class="frow">
+        <div class="fg">
+          <label>📅 Ngày bắt đầu Tuần 1 (Thứ Hai)</label>
+          <input type="date" id="semStart" value="2025-02-17">
+        </div>
+        <div class="fg">
+          <label>🗓 Tổng số tuần học kỳ</label>
+          <input type="number" id="totalWeeks" value="15" min="1" max="30">
+        </div>
+        <div class="fg">
+          <label>🏫 Tên học kỳ (dùng cho lịch)</label>
+          <input type="text" id="semName" value="HK2 2024-2025" placeholder="HK2 2024-2025">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">📋 Dán nội dung TKB</div>
+      <div class="cdesc">Copy toàn bộ nội dung TKB từ PDF hoặc trang web, sau đó dán vào đây. Hệ thống sẽ tự động nhận dạng.</div>
+
+      <div class="alert al-info">
+        💡 <span>Hỗ trợ <strong>ĐH Luật TP.HCM</strong> (dạng bitmask), dạng bảng tab-separated từ các trường khác. Nếu không nhận dạng được hãy dùng tab <strong>Nhập thủ công</strong>.</span>
+      </div>
+
+      <div class="tabbar">
+        <button class="tbtn active" id="tbtn-paste" onclick="switchTab('paste')">📋 Dán tự động</button>
+        <button class="tbtn" id="tbtn-manual" onclick="switchTab('manual')">✏️ Nhập thủ công</button>
+      </div>
+
+      <div class="tab-content active" id="tab-paste">
+        <textarea id="tkbInput" placeholder="Dán nội dung TKB vào đây...
+
+Ví dụ (ĐH Luật TP.HCM):
+THỜI KHÓA BIỂU LỚP
+Học kỳ: 02 - Năm học: 2024-2025
+Lớp: 150-DS48(A) - Khoa: Luật Dân sự
+Tuần bắt đầu học kỳ: tuần 1 (17/02/2025)
+
+1 CS00301 Chủ nghĩa Xã hội khoa học 2 Lý thuyết Thứ Tư 12345_______ B.304NTT _23_567____
+2 LDD30101 Luật Đất đai 2 Lý thuyết Thứ Hai 12345_______ B.304NTT _234567_9__
+3 LHN30101 Luật Hôn nhân và gia đình 2 Lý thuyết Thứ Sáu 12345_______ B.304NTT _2345678___"></textarea>
+      </div>
+
+      <div class="tab-content" id="tab-manual">
+        <div id="meList"></div>
+        <button class="btn btn-s" onclick="addME()" style="margin-top:8px">＋ Thêm môn học</button>
+      </div>
+
+      <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-p btn-lg" id="parseBtn" onclick="doParseAndNext()">
+          🔍 Phân tích TKB
+        </button>
+        <button class="btn btn-s" onclick="loadSample()">📝 Tải dữ liệu mẫu</button>
+      </div>
+    </div>
+  </div><!-- /sec1 -->
+
+  <!-- ══════════════════════════════════════════
+       STEP 2 – PREVIEW
+  ══════════════════════════════════════════ -->
+  <div class="sec" id="sec2">
+
+    <div class="card">
+      <div class="ctitle">✅ Kết quả phân tích</div>
+      <div class="cdesc" id="parseSummary">Đã phân tích thành công.</div>
+      <div class="stats" id="statsGrid"></div>
+      <div class="alert al-warn" id="parseWarn" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">📚 Danh sách môn học</div>
+      <div class="sublist" id="subList"></div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">📅 Thời khóa biểu tuần điển hình</div>
+      <div class="cdesc">Lịch học trong một tuần học bình thường.</div>
+      <div class="wkcal-wrap"><div id="wkCal"></div></div>
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-s" onclick="goStep(1)">← Sửa lại</button>
+      <button class="btn btn-p btn-lg" onclick="goStep(3)">Xuất Google Calendar →</button>
+    </div>
+  </div><!-- /sec2 -->
+
+  <!-- ══════════════════════════════════════════
+       STEP 3 – EXPORT
+  ══════════════════════════════════════════ -->
+  <div class="sec" id="sec3">
+
+    <div class="card">
+      <div class="ctitle">🎉 Sẵn sàng import vào Google Calendar!</div>
+      <div class="cdesc">Tải file ICS rồi làm theo hướng dẫn để thêm toàn bộ lịch học vào Google Calendar.</div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+        <button class="btn btn-g btn-lg" id="dlBtn" onclick="downloadICS()">
+          ⬇️ Tải file ThoiKhoaBieu.ics
+        </button>
+        <a class="btn btn-s btn-lg" href="https://calendar.google.com/calendar/r/settings/export" target="_blank">
+          🔗 Mở Google Calendar Import
+        </a>
+      </div>
+
+      <div class="imp-steps">
+        <div class="imp-step">
+          <div class="imp-n">1</div>
+          <div>
+            <div class="imp-title">Tải file ICS về máy</div>
+            <div class="imp-desc">Bấm nút "Tải file ThoiKhoaBieu.ics" ở trên.</div>
+          </div>
+        </div>
+        <div class="imp-step">
+          <div class="imp-n">2</div>
+          <div>
+            <div class="imp-title">Mở Google Calendar Settings</div>
+            <div class="imp-desc">Vào <strong>calendar.google.com</strong> → Biểu tượng ⚙️ → <strong>Cài đặt</strong> → menu trái chọn <strong>Import &amp; Export</strong></div>
+          </div>
+        </div>
+        <div class="imp-step">
+          <div class="imp-n">3</div>
+          <div>
+            <div class="imp-title">Chọn file và Import</div>
+            <div class="imp-desc">Bấm <strong>"Select file from your computer"</strong> → chọn file <code>ThoiKhoaBieu.ics</code> → bấm <strong>Import</strong>.</div>
+          </div>
+        </div>
+        <div class="imp-step">
+          <div class="imp-n">4</div>
+          <div>
+            <div class="imp-title">Xong! 🎊</div>
+            <div class="imp-desc">Toàn bộ lịch học sẽ xuất hiện trên Google Calendar ngay lập tức!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">📋 Tóm tắt sự kiện sẽ được tạo</div>
+      <div id="evtSummary"></div>
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-s" onclick="goStep(2)">← Xem lại</button>
+      <button class="btn btn-s" onclick="goStep(1)">🔄 Dịch TKB khác</button>
+    </div>
+  </div><!-- /sec3 -->
+
+</div><!-- /wrap -->
+
+<!-- ════════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ── Constants ── */
+const TIET = {
+  1:  { s:'07:00', e:'07:50' },
+  2:  { s:'07:50', e:'08:40' },
+  3:  { s:'08:40', e:'09:30' },
+  4:  { s:'09:45', e:'10:35' },
+  5:  { s:'10:35', e:'11:25' },
+  6:  { s:'11:25', e:'12:15' },
+  7:  { s:'13:00', e:'13:50' },
+  8:  { s:'13:50', e:'14:40' },
+  9:  { s:'14:40', e:'15:30' },
+  10: { s:'15:45', e:'16:35' },
+  11: { s:'16:35', e:'17:25' },
+  12: { s:'17:25', e:'18:15' },
+  13: { s:'18:15', e:'19:05' },
+  14: { s:'19:05', e:'19:55' },
+  15: { s:'19:55', e:'20:45' },
+};
+
+const DAYS = {
+  'hai':  { js:1, vn:'Thứ Hai',  sh:'T2' },
+  'ba':   { js:2, vn:'Thứ Ba',   sh:'T3' },
+  'tư':   { js:3, vn:'Thứ Tư',   sh:'T4' },
+  'tu':   { js:3, vn:'Thứ Tư',   sh:'T4' },
+  'năm':  { js:4, vn:'Thứ Năm',  sh:'T5' },
+  'nam':  { js:4, vn:'Thứ Năm',  sh:'T5' },
+  'sáu':  { js:5, vn:'Thứ Sáu',  sh:'T6' },
+  'sau':  { js:5, vn:'Thứ Sáu',  sh:'T6' },
+  'bảy':  { js:6, vn:'Thứ Bảy',  sh:'T7' },
+  'bay':  { js:6, vn:'Thứ Bảy',  sh:'T7' },
+  'nhật': { js:0, vn:'Chủ Nhật', sh:'CN' },
+  'nhat': { js:0, vn:'Chủ Nhật', sh:'CN' },
+};
+
+const COLORS = [
+  '#6c63ff','#4f8ef7','#ff6b9d','#4ecca3',
+  '#ffd93d','#ff6b6b','#a855f7','#f59e0b',
+  '#10b981','#3b82f6','#ec4899','#14b8a6',
+  '#f97316','#06b6d4','#84cc16','#e11d48',
+];
+
+/* ── State ── */
+let parsed    = [];
+let semStart  = null;
+let totalWks  = 15;
+let meCount   = 0;
+
+/* ═══════════════════════════════════
+   UI NAVIGATION
+═══════════════════════════════════ */
+function goStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById(`sec${i}`).classList.toggle('active', i === n);
+    const ind = document.getElementById(`si${i}`);
+    ind.classList.remove('active','done');
+    if (i < n) ind.classList.add('done');
+    else if (i === n) ind.classList.add('active');
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function switchTab(t) {
+  ['paste','manual'].forEach(id => {
+    document.getElementById(`tab-${id}`).classList.toggle('active', id === t);
+    document.getElementById(`tbtn-${id}`).classList.toggle('active', id === t);
+  });
+  if (t === 'manual' && meCount === 0) { addME(); addME(); }
+}
+
+/* ═══════════════════════════════════
+   PARSER HELPERS
+═══════════════════════════════════ */
+function normAccents(str) {
+  return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function parseDayWord(word) {
+  const w = normAccents(word);
+  return DAYS[w] || null;
+}
+
+/** Parse a bitmask/range/csv string into an array of 1-indexed numbers */
+function parseBitmask(str, maxN) {
+  if (!str) return [];
+  const s = str.replace(/\s/g, '');
+
+  // Has underscores → positional bitmask
+  if (s.includes('_')) {
+    const out = [];
+    for (let i = 0; i < s.length && i < (maxN||99); i++) {
+      if (s[i] !== '_') out.push(i + 1);
+    }
+    return out;
+  }
+
+  // Range like "1-15" or "7-11"
+  const rng = s.match(/^(\d+)-(\d+)$/);
+  if (rng) {
+    const out = [];
+    for (let i = +rng[1]; i <= +rng[2]; i++) out.push(i);
+    return out;
+  }
+
+  // Comma / space separated like "1,2,3" or "1 2 3"
+  const nums = s.match(/\d+/g);
+  if (nums && (s.includes(',') || nums.length > 1)) {
+    return nums.map(Number).filter(n => n >= 1 && n <= (maxN||99));
+  }
+
+  // Pure digit sequence (positional bitmask without underscores)
+  if (/^\d+$/.test(s) && s.length > 2) {
+    const out = [];
+    for (let i = 0; i < s.length && i < (maxN||99); i++) {
+      if (s[i] !== '0') out.push(i + 1); // non-zero = present (treating 0 as absent)
+    }
+    // If that gives suspicious result (all present), treat as individual numbers
+    return out;
+  }
+
+  // Single number
+  const n = parseInt(s);
+  return isNaN(n) ? [] : [n];
+}
+
+/** Return an array of ALL weeks (1..totalWks) */
+function allWeeks() {
+  return Array.from({ length: totalWks }, (_, i) => i + 1);
+}
+
+/* ═══════════════════════════════════
+   MAIN TEXT PARSER
+═══════════════════════════════════ */
+function parseTKBText(raw) {
+  const warnings = [];
+  const classes  = [];
+
+  // ── 1. Auto-detect semester start from text
+  const sdMatch = raw.match(/tu[aâ]n\s*1\s*\(\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*\)/i);
+  if (sdMatch) {
+    const d = new Date(+sdMatch[3], +sdMatch[2]-1, +sdMatch[1]);
+    if (!isNaN(d)) {
+      semStart = d;
+      document.getElementById('semStart').value = d.toISOString().slice(0,10);
+    }
+  }
+
+  // ── 2. Collapse the text: join short lines so table rows become single lines
+  const rawLines = raw.split(/\r?\n/);
+  const joined = [];
+  let buf = '';
+  for (const l of rawLines) {
+    const t = l.trim();
+    if (!t) { if (buf) { joined.push(buf); buf = ''; } continue; }
+    // Start a new logical row if: line starts with a row-number + subject code, OR contains "Thứ" at start
+    if (buf && (t.match(/^\d+\s+[A-Z]{2,}\d{2,}/) || t.match(/^Thứ\s+(Hai|Ba|Tư|Năm|Sáu|Bảy)/i))) {
+      joined.push(buf); buf = t;
+    } else {
+      buf = buf ? buf + ' ' + t : t;
+    }
+  }
+  if (buf) joined.push(buf);
+
+  // ── 3. For each logical line that contains "Thứ [weekday]", parse it
+  const dayRx = /Thứ\s+(Hai|Ba|Tư|Tu|Năm|Nam|Sáu|Sau|Bảy|Bay)/ig;
+
+  const keySet = new Set();
+
+  for (const line of joined) {
+    if (!dayRx.test(line)) continue;
+    dayRx.lastIndex = 0; // reset
+
+    // There could be multiple "Thứ" in one line (shouldn't happen normally)
+    let m;
+    while ((m = dayRx.exec(line)) !== null) {
+      const dayInfo = parseDayWord(m[1]);
+      if (!dayInfo) continue;
+
+      const dayPos   = m.index;
+      const afterDay = line.slice(dayPos + m[0].length).trim();
+      const beforeDay= line.slice(0, dayPos).trim();
+
+      // ── Extract subject code
+      const codeM = beforeDay.match(/\b([A-Z]{2,6}\d{4,8})\b/) ||
+                    line.match(/\b([A-Z]{2,6}\d{4,8})\b/);
+      const code = codeM ? codeM[1] : 'N/A';
+
+      // ── Extract subject name (between code and credit digit + type)
+      let name = '';
+      if (codeM) {
+        const afterCode = beforeDay.slice(beforeDay.indexOf(codeM[0]) + codeM[0].length).trim();
+        const nmM = afterCode.match(/^(.+?)\s+\d\s+(?:Lý|Thực)/i);
+        if (nmM) {
+          name = nmM[1].trim();
+        } else {
+          // Fallback: everything after code, remove trailing single digit
+          name = afterCode.replace(/\s*\d\s*$/, '').trim();
+        }
+      }
+      if (!name || name.length < 2) {
+        // Second fallback: text between row-number and day
+        const fbM = beforeDay.match(/^\d+\s+(?:[A-Z]+\d+\s+)?(.+?)\s*\d?\s*(?:Lý|Thực)?$/i);
+        if (fbM) name = fbM[1].trim();
+      }
+      if (!name) name = code !== 'N/A' ? code : 'Môn học';
+
+      // ── Extract credits and type
+      const typeM = line.match(/(\d)\s+(Lý\s*thu?y[eế]t|Thực\s*hành)/i);
+      const credits = typeM ? +typeM[1] : 0;
+      const type    = /thực\s*hành/i.test(line) ? 'Thực hành' : 'Lý thuyết';
+
+      // ── Extract tiết bitmask (first [_\d]{5,} after "Thứ [day]")
+      let tiets = [];
+      let room  = 'N/A';
+      let weeks = [];
+
+      const bitmaskM = afterDay.match(/([_\d]{5,})/);
+      if (bitmaskM) {
+        tiets = parseBitmask(bitmaskM[0], 15).filter(t => t >= 1 && t <= 15);
+
+        const afterTiet = afterDay.slice(bitmaskM.index + bitmaskM[0].length).trim();
+
+        // Room: first token that looks like a room name
+        const roomM = afterTiet.match(/\b([A-Z][A-Za-z0-9._-]{1,}(?:[A-Z]|\d))\b/);
+        room = roomM ? roomM[1] : 'N/A';
+
+        // Tuần bitmask: after room
+        if (roomM) {
+          const afterRoom = afterTiet.slice(afterTiet.indexOf(roomM[0]) + roomM[0].length).trim();
+          const tuanM = afterRoom.match(/([_\d]{6,})/);
+          if (tuanM) weeks = parseBitmask(tuanM[0], totalWks);
+        }
+      } else {
+        // Fallback: look for "Tiết X-Y" style
+        const trng = afterDay.match(/[Tt]i[eế]t\s*(\d+)\s*[-–]\s*(\d+)/);
+        if (trng) {
+          for (let i = +trng[1]; i <= +trng[2]; i++) tiets.push(i);
+        } else {
+          // Try plain numbers at start
+          const nums = afterDay.match(/^([\d,\s]+)/);
+          if (nums) tiets = nums[1].split(/[\s,]+/).map(Number).filter(Boolean);
+        }
+        const tuanRng = line.match(/[Tt]u[aâ]n\s*([\d,\s\-–]+)/);
+        if (tuanRng) weeks = parseBitmask(tuanRng[1]);
+        const roomM2 = afterDay.match(/\b([A-Z][A-Za-z0-9._]{2,})\b/);
+        if (roomM2) room = roomM2[1];
+      }
+
+      if (tiets.length === 0) {
+        warnings.push(`Không tìm được tiết học: "${name}". Mặc định tiết 1-5.`);
+        tiets = [1,2,3,4,5];
+      }
+      if (weeks.length === 0) weeks = allWeeks();
+
+      const t0 = Math.min(...tiets), t1 = Math.max(...tiets);
+      const entry = {
+        code, name, credits, type,
+        dayIndex: dayInfo.js,
+        dayVN: dayInfo.vn,
+        dayShort: dayInfo.sh,
+        tiets, room, weeks,
+        startT: TIET[t0]?.s || '07:00',
+        endT:   TIET[t1]?.e || '11:25',
+        color: null,
+      };
+
+      // Merge duplicate (same code+day+tiets) – keep union of weeks
+      const key = `${code}_${dayInfo.js}_${tiets.join(',')}`;
+      if (keySet.has(key)) {
+        const ex = classes.find(c => `${c.code}_${c.dayIndex}_${c.tiets.join(',')}` === key);
+        if (ex) { const ws = new Set([...ex.weeks, ...weeks]); ex.weeks = [...ws].sort((a,b)=>a-b); }
+      } else {
+        keySet.add(key);
+        classes.push(entry);
+      }
+    }
+  }
+
+  if (classes.length === 0)
+    warnings.push('Không thể tự động phân tích. Vui lòng thử nhập thủ công hoặc kiểm tra định dạng TKB.');
+
+  return { classes, warnings };
+}
+
+/* ═══════════════════════════════════
+   COLOR ASSIGNMENT
+═══════════════════════════════════ */
+function assignColors(arr) {
+  const map = {}; let ci = 0;
+  return arr.map(c => {
+    if (!map[c.name]) map[c.name] = COLORS[ci++ % COLORS.length];
+    return { ...c, color: map[c.name] };
+  });
+}
+
+/* ═══════════════════════════════════
+   PARSE & GO STEP 2
+═══════════════════════════════════ */
+function doParseAndNext() {
+  // Read semester config
+  const dateVal = document.getElementById('semStart').value;
+  if (dateVal) semStart = new Date(dateVal + 'T00:00:00');
+  totalWks = parseInt(document.getElementById('totalWeeks').value) || 15;
+
+  const isPaste = document.getElementById('tab-paste').classList.contains('active');
+  const btn = document.getElementById('parseBtn');
+
+  if (isPaste) {
+    const txt = document.getElementById('tkbInput').value.trim();
+    if (!txt) { alert('Vui lòng dán nội dung TKB!'); return; }
+
+    btn.innerHTML = '<div class="spin"></div> Đang phân tích...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+      const { classes, warnings } = parseTKBText(txt);
+      btn.innerHTML = '🔍 Phân tích TKB'; btn.disabled = false;
+
+      if (classes.length === 0) {
+        alert('Không thể phân tích TKB. Hãy thử dán lại hoặc dùng nhập thủ công!');
+        return;
+      }
+      parsed = assignColors(classes);
+      renderPreview(parsed, warnings);
+      goStep(2);
+    }, 400);
+
+  } else {
+    const cs = getME();
+    if (cs.length === 0) { alert('Vui lòng nhập ít nhất một môn!'); return; }
+    parsed = assignColors(cs);
+    renderPreview(parsed, []);
+    goStep(2);
+  }
+}
+
+/* ═══════════════════════════════════
+   RENDER PREVIEW
+═══════════════════════════════════ */
+function renderPreview(classes, warnings) {
+  const uniq = [...new Map(classes.map(c=>[c.name,c])).values()];
+  const totalEvts = classes.reduce((s,c) => s + c.weeks.length, 0);
+  const totalTC   = uniq.reduce((s,c) => s + (c.credits||0), 0);
+
+  document.getElementById('parseSummary').textContent =
+    `Đã phân tích ${classes.length} buổi/tuần — ${uniq.length} môn học — ${totalEvts} sự kiện Calendar.`;
+
+  // Stats
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="scard"><div class="sval">${uniq.length}</div><div class="slb">Môn học</div></div>
+    <div class="scard"><div class="sval">${classes.length}</div><div class="slb">Buổi/tuần</div></div>
+    <div class="scard"><div class="sval">${totalEvts}</div><div class="slb">Sự kiện Calendar</div></div>
+    <div class="scard"><div class="sval">${totalTC}</div><div class="slb">Tín chỉ</div></div>
+  `;
+
+  // Warnings
+  const warnEl = document.getElementById('parseWarn');
+  if (warnings && warnings.length) {
+    warnEl.style.display = 'flex';
+    warnEl.innerHTML = `⚠️ <div>${warnings.slice(0,5).join('<br>')}</div>`;
+  } else { warnEl.style.display = 'none'; }
+
+  // Subject list
+  document.getElementById('subList').innerHTML = classes.map(c => `
+    <div class="subitem">
+      <div class="subcol" style="background:${c.color}"></div>
+      <div style="flex:1">
+        <div class="subname"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
+        <div class="submeta">
+          <span>📅 ${c.dayVN}</span>
+          <span>⏰ Tiết ${c.tiets[0]}–${c.tiets[c.tiets.length-1]} &nbsp;(${c.startT}–${c.endT})</span>
+          <span>🏫 ${c.room}</span>
+          <span>📆 ${c.weeks.length} tuần</span>
+          ${c.credits ? `<span>📚 ${c.credits} TC</span>` : ''}
+        </div>
+      </div>
+      <span class="tag ${c.type==='Thực hành'?'tag-g':'tag-b'}">${c.type}</span>
+    </div>
+  `).join('');
+
+  // Week calendar
+  renderWeekCal(classes);
+
+  // Events summary for step 3
+  renderEvtSummary(classes);
+}
+
+function renderWeekCal(classes) {
+  const dayLabels = ['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+  const dayIdxs   = [1,2,3,4,5,6];
+
+  const byDay = {};
+  for (const d of dayIdxs) byDay[d] = [];
+  for (const c of classes) { if (byDay[c.dayIndex]) byDay[c.dayIndex].push(c); }
+  for (const d of dayIdxs) byDay[d].sort((a,b) => a.startT.localeCompare(b.startT));
+
+  let html = '<div class="wkcal">';
+  for (let i = 0; i < 6; i++) {
+    const d = dayIdxs[i];
+    html += `
+      <div>
+        <div class="wkday-hd">${dayLabels[i]}</div>
+        <div class="wkday-col">
+    `;
+    if (byDay[d].length === 0) {
+      html += '<div class="wkempty">—</div>';
+    } else {
+      for (const c of byDay[d]) {
+        const sn = c.name.length > 28 ? c.name.slice(0,25)+'…' : c.name;
+        html += `
+          <div class="wkblk" style="background:${c.color}1a;border-left:3px solid ${c.color}"
+               title="${c.name}\n${c.startT}–${c.endT}\n${c.room}">
+            <div class="wkblk-name" style="color:${c.color}">${sn}</div>
+            <div class="wkblk-time">${c.startT} – ${c.endT}</div>
+            <div class="wkblk-room">🏫 ${c.room}</div>
+          </div>`;
+      }
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  document.getElementById('wkCal').innerHTML = html;
+}
+
+function renderEvtSummary(classes) {
+  const byName = {};
+  for (const c of classes) {
+    (byName[c.name] = byName[c.name]||[]).push(c);
+  }
+  let total = 0;
+  let html = '<table class="ptable"><thead><tr><th>Môn học</th><th>Lịch học</th><th>Số sự kiện</th></tr></thead><tbody>';
+  for (const [name, arr] of Object.entries(byName)) {
+    const color = arr[0].color;
+    const sched = arr.map(c=>`${c.dayVN} Tiết ${c.tiets[0]}–${c.tiets[c.tiets.length-1]}`).join(', ');
+    const n = arr.reduce((s,c)=>s+c.weeks.length,0); total+=n;
+    html+=`<tr><td><span class="dot" style="background:${color}"></span>${name}</td><td style="color:var(--txt2)">${sched}</td><td><span class="badge">${n}</span></td></tr>`;
+  }
+  html+=`</tbody></table><p style="margin-top:14px;font-size:13px;color:var(--txt2)">Tổng cộng <strong style="color:var(--txt)">${total} sự kiện</strong> sẽ được tạo.</p>`;
+  document.getElementById('evtSummary').innerHTML = html;
+}
+
+/* ═══════════════════════════════════
+   ICS GENERATION
+═══════════════════════════════════ */
+function dateForWeekDay(start, week, dayJS) {
+  // start = Monday of week 1
+  const ms = 24*60*60*1000;
+  const weekMon = new Date(start.getTime() + (week-1)*7*ms);
+  const off = dayJS === 0 ? 6 : dayJS - 1; // Mon=0 … Sun=6
+  return new Date(weekMon.getTime() + off*ms);
+}
+
+function icsDate(date, timeStr) {
+  const y  = date.getFullYear();
+  const mo = String(date.getMonth()+1).padStart(2,'0');
+  const d  = String(date.getDate()).padStart(2,'0');
+  const [h,mi] = timeStr.split(':');
+  return `${y}${mo}${d}T${h.padStart(2,'0')}${mi.padStart(2,'0')}00`;
+}
+
+function icsNow() {
+  const n = new Date();
+  return `${n.getUTCFullYear()}${String(n.getUTCMonth()+1).padStart(2,'0')}${String(n.getUTCDate()).padStart(2,'0')}T${String(n.getUTCHours()).padStart(2,'0')}${String(n.getUTCMinutes()).padStart(2,'0')}${String(n.getUTCSeconds()).padStart(2,'0')}Z`;
+}
+
+function esc(s) { return String(s).replace(/[\\;,]/g,'\\$&').replace(/\n/g,'\\n'); }
+
+function fold(line) {
+  const MAX = 75;
+  if (line.length <= MAX) return line;
+  let r='', rem=line;
+  while(rem.length>MAX){ r+=rem.slice(0,MAX)+'\r\n '; rem=rem.slice(MAX); }
+  return r+rem;
+}
+
+function generateICS(classes) {
+  const calName = document.getElementById('semName').value || 'Thời Khóa Biểu';
+  const start   = semStart || new Date();
+  const stamp   = icsNow();
+  let uid_idx   = 1;
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//TKB Converter//HCMC//VN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${esc(calName)}`,
+    'X-WR-TIMEZONE:Asia/Ho_Chi_Minh',
+    'BEGIN:VTIMEZONE',
+    'TZID:Asia/Ho_Chi_Minh',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0700',
+    'TZOFFSETTO:+0700',
+    'TZNAME:ICT',
+    'DTSTART:19700101T000000',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+  ];
+
+  for (const c of classes) {
+    for (const wk of c.weeks) {
+      const dt  = dateForWeekDay(start, wk, c.dayIndex);
+      const uid = `tkb-${uid_idx++}-${c.code}-w${wk}@tkbconv`;
+      const desc = esc([
+        `Mã môn: ${c.code}`,
+        `Loại: ${c.type}`,
+        c.credits ? `${c.credits} tín chỉ` : '',
+        `Tiết ${c.tiets[0]}–${c.tiets[c.tiets.length-1]}`,
+        `Tuần ${wk}/${totalWks}`,
+      ].filter(Boolean).join(' | '));
+
+      lines.push(
+        'BEGIN:VEVENT',
+        fold(`UID:${uid}`),
+        `DTSTAMP:${stamp}`,
+        fold(`DTSTART;TZID=Asia/Ho_Chi_Minh:${icsDate(dt,c.startT)}`),
+        fold(`DTEND;TZID=Asia/Ho_Chi_Minh:${icsDate(dt,c.endT)}`),
+        fold(`SUMMARY:${esc(c.name)}`),
+        fold(`LOCATION:${esc(c.room)}`),
+        fold(`DESCRIPTION:${desc}`),
+        'STATUS:CONFIRMED',
+        'END:VEVENT',
+      );
+    }
+  }
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+function downloadICS() {
+  if (!parsed.length) { alert('Không có dữ liệu!'); return; }
+  const ics  = generateICS(parsed);
+  const blob = new Blob([ics], { type:'text/calendar;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href:url, download:'ThoiKhoaBieu.ics' });
+  a.click();
+  URL.revokeObjectURL(url);
+
+  const btn = document.getElementById('dlBtn');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '✅ Đã tải xuống!';
+  setTimeout(()=>{ btn.innerHTML = orig; }, 3000);
+}
+
+/* ═══════════════════════════════════
+   MANUAL ENTRY
+═══════════════════════════════════ */
+function addME() {
+  meCount++;
+  const id = meCount;
+  const el = document.createElement('div');
+  el.className = 'me-row'; el.id = `me${id}`;
+
+  const tietOpts = Array.from({length:15},(_,i)=>
+    `<option value="${i+1}"${i===0||i===4?` ${i===4?'selected':''}`:''}>${i+1} (${TIET[i+1].s})</option>`).join('');
+
+  el.innerHTML = `
+    <div class="me-hd">
+      <span class="me-lbl">Môn học ${id}</span>
+      <button class="me-del" onclick="document.getElementById('me${id}').remove()">×</button>
+    </div>
+    <div class="frow">
+      <div class="fg" style="flex:2"><label>Tên môn học</label>
+        <input class="me-name" type="text" placeholder="Luật Đất đai"></div>
+      <div class="fg"><label>Mã môn</label>
+        <input class="me-code" type="text" placeholder="LDD30101"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Thứ</label>
+        <select class="me-day">
+          <option value="1">Thứ Hai</option><option value="2">Thứ Ba</option>
+          <option value="3">Thứ Tư</option><option value="4">Thứ Năm</option>
+          <option value="5">Thứ Sáu</option><option value="6">Thứ Bảy</option>
+        </select></div>
+      <div class="fg"><label>Tiết bắt đầu</label>
+        <select class="me-ts">${tietOpts}</select></div>
+      <div class="fg"><label>Tiết kết thúc</label>
+        <select class="me-te">${tietOpts}</select></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Phòng học</label>
+        <input class="me-room" type="text" placeholder="B.304NTT"></div>
+      <div class="fg"><label>Số tín chỉ</label>
+        <input class="me-tc" type="number" value="2" min="1" max="10"></div>
+      <div class="fg"><label>Tuần học (vd: 1-15 hoặc 2,3,5,6,7)</label>
+        <input class="me-weeks" type="text" value="1-15" placeholder="1-15"></div>
+    </div>`;
+  document.getElementById('meList').appendChild(el);
+}
+
+function getME() {
+  const dayMap = {'1':{vn:'Thứ Hai',sh:'T2'},'2':{vn:'Thứ Ba',sh:'T3'},'3':{vn:'Thứ Tư',sh:'T4'},
+                  '4':{vn:'Thứ Năm',sh:'T5'},'5':{vn:'Thứ Sáu',sh:'T6'},'6':{vn:'Thứ Bảy',sh:'T7'}};
+  const out = [];
+  document.querySelectorAll('.me-row').forEach(el => {
+    const name = el.querySelector('.me-name')?.value?.trim();
+    if (!name) return;
+    const code   = el.querySelector('.me-code')?.value?.trim() || 'N/A';
+    const dayV   = el.querySelector('.me-day')?.value || '1';
+    const di     = +dayV;
+    const ts     = +el.querySelector('.me-ts')?.value || 1;
+    const te     = +el.querySelector('.me-te')?.value || 5;
+    const room   = el.querySelector('.me-room')?.value?.trim() || 'N/A';
+    const tc     = +el.querySelector('.me-tc')?.value || 0;
+    const weeksS = el.querySelector('.me-weeks')?.value || '1-15';
+    const tiets  = Array.from({length: te-ts+1},(_,i)=>ts+i);
+    const weeks  = parseBitmask(weeksS, totalWks).length ? parseBitmask(weeksS, totalWks) : allWeeks();
+    const dinf   = dayMap[dayV] || dayMap['1'];
+    out.push({
+      code, name, credits:tc, type:'Lý thuyết',
+      dayIndex:di, dayVN:dinf.vn, dayShort:dinf.sh,
+      tiets, room, weeks,
+      startT: TIET[ts]?.s||'07:00', endT: TIET[te]?.e||'11:25',
+      color: null,
+    });
+  });
+  return out;
+}
+
+/* ═══════════════════════════════════
+   SAMPLE DATA
+═══════════════════════════════════ */
+function loadSample() {
+  document.getElementById('tkbInput').value =
+`THỜI KHÓA BIỂU LỚP
+Học kỳ: 02 - Năm học: 2024-2025
+Lớp: 150-DS48(A) (Sĩ Số: 45) - Khoa: Khoa Luật Dân sự
+Tuần bắt đầu học kỳ: tuần 1 (17/02/2025)
+
+1 CS00301 Chủ nghĩa Xã hội khoa học 2 Lý thuyết Thứ Tư 12345_______ B.304NTT _23_567____
+2 LDD30101 Luật Đất đai 2 Lý thuyết Thứ Hai 12345_______ B.304NTT _234567_9__
+3 LHN30101 Luật Hôn nhân và gia đình 2 Lý thuyết Thứ Sáu 12345_______ B.304NTT _2345678___
+4 LHS30101 Luật Hình sự phần chung 3 Lý thuyết Thứ Hai ______78901_ B.304NTT _23456789__
+5 LHS30101 Luật Hình sự phần chung 3 Lý thuyết Thứ Sáu ______78901_ B.304NTT _23456789__
+6 LLD30103 Luật Lao động 3 Lý thuyết Thứ Hai ______78901_ B.304NTT __________23456789
+7 LLD30103 Luật Lao động 3 Lý thuyết Thứ Tư ______78901_ B.304NTT __________2________
+8 LLD30103 Luật Lao động 3 Lý thuyết Thứ Sáu ______78901_ B.304NTT __________23456789
+9 LNH30106 Luật Ngân hàng 2 Lý thuyết Thứ Sáu 12345_______ B.304NTT __________23456789
+10 LTM30301 Pháp luật thương mại hàng hóa và dịch vụ 2 Lý thuyết Thứ Hai 12345_______ B.304NTT __________23456789
+11 SHCVHT0171 Sinh hoạt lớp 1 Lý thuyết Thứ Ba 1234________ B.304NTT ___4___8___3___7___
+
+Ghi chú: Ngày 17 tháng 1 năm 2025`;
+
+  document.getElementById('semStart').value   = '2025-02-17';
+  document.getElementById('totalWeeks').value = '15';
+  document.getElementById('semName').value    = 'HK2 2024-2025';
+
+  // Switch to paste tab
+  switchTab('paste');
+}
+
+/* ═══════════════════════════════════
+   INIT
+═══════════════════════════════════ */
+(function init() {
+  // Default semester start: next Monday if no value
+  const si = document.getElementById('semStart');
+  if (!si.value) {
+    const today = new Date();
+    const diff  = (8 - today.getDay()) % 7 || 7;
+    const mon   = new Date(today.getTime() + diff*864e5);
+    si.value = mon.toISOString().slice(0,10);
+  }
+})();
+</script>
+</body>
+</html>
