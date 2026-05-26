@@ -359,8 +359,8 @@
           <input type="date" id="semStart" value="2025-02-17">
         </div>
         <div class="fg">
-          <label>🗓 Tổng số tuần học kỳ</label>
-          <input type="number" id="totalWeeks" value="15" min="1" max="30">
+          <label>📅 Tổng số tuần học kỳ</label>
+          <input type="number" id="totalWeeks" value="22" min="1" max="30">
         </div>
         <div class="fg">
           <label>🏫 Tên học kỳ (dùng cho lịch)</label>
@@ -562,7 +562,7 @@ const COLORS = [
 /* ── State ── */
 let allSessions = [];   // raw sessions (one per TKB row)
 let semStart    = null;
-let totalWks    = 15;
+let totalWks    = 22;
 let meCount     = 0;
 let previewWeek = 1;
 
@@ -851,7 +851,7 @@ function assignColors(sessions) {
 function doParseAndNext() {
   const dateVal = document.getElementById('semStart').value;
   if (dateVal) semStart = new Date(dateVal + 'T00:00:00');
-  totalWks = parseInt(document.getElementById('totalWeeks').value) || 15;
+  totalWks = parseInt(document.getElementById('totalWeeks').value) || 22;
 
   const isPaste = document.getElementById('tab-paste').classList.contains('active');
   const btn = document.getElementById('parseBtn');
