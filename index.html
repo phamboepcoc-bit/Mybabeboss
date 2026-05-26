@@ -365,7 +365,7 @@
       <div class="frow">
         <div class="fg">
           <label>📅 Ngày bắt đầu Tuần 1 (Thứ Hai)</label>
-          <input type="date" id="semStart" value="2025-02-17">
+          <input type="date" id="semStart">
         </div>
         <div class="fg">
           <label>📅 Tổng số tuần học kỳ</label>
@@ -373,7 +373,7 @@
         </div>
         <div class="fg">
           <label>🏫 Tên học kỳ (dùng cho lịch)</label>
-          <input type="text" id="semName" value="HK2 2024-2025" placeholder="HK2 2024-2025">
+          <input type="text" id="semName" placeholder="HK2 2024-2025">
         </div>
       </div>
     </div>
@@ -1274,9 +1274,19 @@ TT\tLớp học phần\tTên học phần\tSố TC\tLoại HP\tThứ\tTiết\tPh
    INIT
 ═══════════════════════════════════ */
 (function init() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  
   const si = document.getElementById('semStart');
   if (!si.value) {
-    si.value = '2025-08-18';
+    si.value = `${yyyy}-${mm}-${dd}`;
+  }
+  
+  const sn = document.getElementById('semName');
+  if (!sn.value) {
+    sn.value = `HK${yyyy}`;
   }
 })();
 
