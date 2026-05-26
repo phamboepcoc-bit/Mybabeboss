@@ -312,6 +312,23 @@
       .scon  { width: 28px; }
       .slabel{ display: none; }
     }
+
+    /* ── Snowflakes ── */
+    #snow-container {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 9999; overflow: hidden;
+    }
+    .snowflake {
+      position: absolute; top: -10px; background: white; border-radius: 50%;
+      opacity: 0.8; animation: fall linear infinite;
+      box-shadow: 0 0 5px rgba(255,255,255,0.8);
+    }
+    @keyframes fall {
+      0% { transform: translateY(-10vh) translateX(0); opacity: 0; }
+      10% { opacity: 0.9; }
+      90% { opacity: 0.9; }
+      100% { transform: translateY(110vh) translateX(var(--sway)); opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -371,7 +388,6 @@
 
     <div class="card">
       <div class="ctitle">📋 Dán nội dung TKB</div>
-      <div class="cdesc">Copy toàn bộ nội dung TKB từ PDF hoặc trang web, sau đó dán vào đây. Hệ thống sẽ tự động nhận dạng.</div>
 
       <div class="alert al-info">
         💡 <span>Hãy vào file excel của bạn, copy toàn bộ thời khoá biểu (nhấn vào ô trống bất kỳ rồi CTRL A, sau đó CTRL C, rồi CTRL V vào đây).</span>
@@ -1271,6 +1287,28 @@ TT\tLớp học phần\tTên học phần\tSố TC\tLoại HP\tThứ\tTiết\tPh
     si.value = '2025-08-18';
   }
 })();
+
+// Snowflakes generator
+function createSnowflakes() {
+  const container = document.createElement('div');
+  container.id = 'snow-container';
+  document.body.appendChild(container);
+  
+  const count = 60;
+  for (let i = 0; i < count; i++) {
+    const snow = document.createElement('div');
+    snow.classList.add('snowflake');
+    const size = Math.random() * 4 + 2; 
+    snow.style.width = size + 'px';
+    snow.style.height = size + 'px';
+    snow.style.left = Math.random() * 100 + 'vw';
+    snow.style.animationDuration = Math.random() * 4 + 3 + 's'; 
+    snow.style.animationDelay = Math.random() * 5 + 's';
+    snow.style.setProperty('--sway', (Math.random() * 100 - 50) + 'px');
+    container.appendChild(snow);
+  }
+}
+window.addEventListener('DOMContentLoaded', createSnowflakes);
 </script>
 </body>
 </html>
