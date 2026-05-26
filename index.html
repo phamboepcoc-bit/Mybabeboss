@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -607,19 +607,10 @@ function parseDayWord(word) {
  */
 function parseBitmask(str, maxN) {
   if (!str) return [];
-  const s = str.replace(/\s/g, '');
-
-  // Positional bitmask (has underscores OR is long digit string ≥6 chars)
-  if (s.includes('_') || (s.length >= 6 && /^[\d_]+$/.test(s))) {
-    const out = [];
-    for (let i = 0; i < s.length && i < (maxN || 99); i++) {
-      if (s[i] !== '_') out.push(i + 1);
-    }
-    return out;
-  }
+  const trimmed = str.trim();
 
   // Range "1-15"
-  const rng = s.match(/^(\d+)-(\d+)$/);
+  const rng = trimmed.match(/^(\d+)\s*-\s*(\d+)$/);
   if (rng) {
     const out = [];
     for (let i = +rng[1]; i <= +rng[2]; i++) out.push(i);
@@ -627,12 +618,36 @@ function parseBitmask(str, maxN) {
   }
 
   // Comma separated "1,2,3,5"
-  if (s.includes(',')) {
-    return s.split(',').map(Number).filter(n => n >= 1 && n <= (maxN || 99));
+  if (trimmed.includes(',')) {
+    return trimmed.split(',').map(Number).filter(n => n >= 1 && n <= (maxN || 99));
   }
 
-  // Single number
-  const n = parseInt(s);
+  // Positional bitmask
+  // Valid characters must match the sequence: 1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6...
+  const outPos = [];
+  let hasChars = false;
+  let allMatched = true;
+
+  for (let i = 0; i < str.length && i < (maxN || 99); i++) {
+    const c = str[i];
+    if (c !== ' ' && c !== '_') {
+      hasChars = true;
+      const expected = ((i + 1) % 10).toString();
+      if (c === expected) {
+        outPos.push(i + 1);
+      } else {
+        allMatched = false;
+        break;
+      }
+    }
+  }
+
+  if (hasChars && allMatched) {
+    return outPos;
+  }
+
+  // Fallback to single number (e.g., user manually types "16")
+  const n = parseInt(trimmed);
   return isNaN(n) ? [] : [n];
 }
 
@@ -664,7 +679,8 @@ function parseTabFormat(text) {
 
   for (const line of lines) {
     if (!line.includes('\t')) continue;
-    const cols = line.split('\t').map(c => c.replace(/^"|"$/g, '').trim());
+    const colsRaw = line.split('\t').map(c => c.replace(/^"|"$/g, ''));
+    const cols = colsRaw.map(c => c.trim());
 
     // Find column with "Thứ ..."
     const dayColIdx = cols.findIndex(c => /Thứ\s+(Hai|Ba|Tư|Tu|Năm|Nam|Sáu|Sau|Bảy|Bay)/i.test(c));
@@ -675,9 +691,10 @@ function parseTabFormat(text) {
     if (!dayInfo) continue;
 
     // Columns after day: tiết bitmask, room, tuần bitmask
-    const tietStr = cols[dayColIdx + 1] || '';
-    const room    = (cols[dayColIdx + 2] || '').replace(/['"]/g, '').trim() || 'N/A';
-    const tuanStr = cols[dayColIdx + 3] || '';
+    // DO NOT TRIM positional bitmasks so spaces are preserved!
+    const tietStr = colsRaw[dayColIdx + 1] || '';
+    const room    = cols[dayColIdx + 2] || 'N/A';
+    const tuanStr = colsRaw[dayColIdx + 3] || '';
 
     // Find code before day column
     let code = 'N/A', name = 'Môn học', credits = 0, type = 'Lý thuyết';
