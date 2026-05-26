@@ -690,29 +690,37 @@ function parseTabFormat(text) {
     const dayInfo = parseDayWord(dayM[1]);
     if (!dayInfo) continue;
 
-    // Columns after day: tiết bitmask, room, tuần bitmask
-    // DO NOT TRIM positional bitmasks so spaces are preserved!
-    const tietStr = colsRaw[dayColIdx + 1] || '';
-    const room    = cols[dayColIdx + 2] || 'N/A';
-    const tuanStr = colsRaw[dayColIdx + 3] || '';
+    // Excel merged cells create many empty tabs. Filter them out to find actual values.
+    const afterDay = colsRaw.slice(dayColIdx + 1).filter(c => c.trim() !== '');
+    
+    let tietStr = '', room = 'N/A', tuanStr = '';
+    if (afterDay.length >= 3) {
+      tietStr = afterDay[0];
+      room = afterDay[1].trim();
+      tuanStr = afterDay[2];
+    } else if (afterDay.length === 2) {
+      tietStr = afterDay[0];
+      if (/^[\d_\s,.-]+$/.test(afterDay[1])) {
+        tuanStr = afterDay[1];
+      } else {
+        room = afterDay[1].trim();
+      }
+    } else if (afterDay.length === 1) {
+      tietStr = afterDay[0];
+    }
 
-    // Find code before day column
+    // Find code and details before day column
     let code = 'N/A', name = 'Môn học', credits = 0, type = 'Lý thuyết';
-    for (let i = 0; i < dayColIdx; i++) {
-      if (/^[A-Z]{2,6}\d{4,8}$/.test(cols[i])) {
-        code = cols[i];
-        // Name is the next column after code
-        name = cols[i + 1] || code;
-        // Credits: next single-digit number column
-        for (let j = i + 2; j < dayColIdx; j++) {
-          if (/^\d$/.test(cols[j])) { credits = +cols[j]; break; }
-        }
-        // Type
-        for (let j = i + 2; j < dayColIdx; j++) {
-          if (/thực\s*hành/i.test(cols[j])) { type = 'Thực hành'; break; }
-          if (/lý\s*thu?yết/i.test(cols[j])) { type = 'Lý thuyết'; break; }
-        }
-        break;
+    const codeIdx = cols.findIndex((c, idx) => idx < dayColIdx && /^[A-Z]{2,6}\d{4,8}$/.test(c));
+    
+    if (codeIdx >= 0) {
+      code = cols[codeIdx];
+      const beforeDay = cols.slice(codeIdx + 1, dayColIdx).filter(c => c !== '');
+      if (beforeDay.length > 0) name = beforeDay[0];
+      for (const c of beforeDay) {
+        if (/^\d$/.test(c)) credits = +c;
+        if (/thực\s*hành/i.test(c)) type = 'Thực hành';
+        if (/lý\s*thu?yết/i.test(c)) type = 'Lý thuyết';
       }
     }
 
