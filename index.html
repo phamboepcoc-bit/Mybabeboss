@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -428,8 +428,18 @@ Tuần bắt đầu học kỳ: tuần 1 (17/02/2025)
     </div>
 
     <div class="card">
-      <div class="ctitle">📅 Thời khóa biểu tuần điển hình</div>
-      <div class="cdesc">Lịch học trong một tuần học bình thường.</div>
+      <div class="ctitle">📅 Thời khóa biểu theo tuần</div>
+      <div class="cdesc">Chọn tuần để xem lịch học chính xác — mỗi tuần có thể khác nhau do môn học xoay vòng.</div>
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:220px">
+          <span style="font-size:13px;color:var(--txt2);white-space:nowrap">Tuần:</span>
+          <input type="range" id="weekSlider" min="1" max="15" value="1"
+            style="flex:1;accent-color:var(--a1);cursor:pointer"
+            oninput="onWeekSlide(this.value)">
+          <span id="weekLabel" style="font-size:14px;font-weight:700;color:var(--a1);min-width:60px">Tuần 1</span>
+        </div>
+        <div id="weekDateLabel" style="font-size:12px;color:var(--txt2)"></div>
+      </div>
       <div class="wkcal-wrap"><div id="wkCal"></div></div>
     </div>
 
@@ -550,10 +560,11 @@ const COLORS = [
 ];
 
 /* ── State ── */
-let parsed    = [];
-let semStart  = null;
-let totalWks  = 15;
-let meCount   = 0;
+let allSessions = [];   // raw sessions (one per TKB row)
+let semStart    = null;
+let totalWks    = 15;
+let meCount     = 0;
+let previewWeek = 1;
 
 /* ═══════════════════════════════════
    UI NAVIGATION
@@ -585,25 +596,29 @@ function normAccents(str) {
 }
 
 function parseDayWord(word) {
-  const w = normAccents(word);
+  const w = normAccents(word.trim());
   return DAYS[w] || null;
 }
 
-/** Parse a bitmask/range/csv string into an array of 1-indexed numbers */
+/**
+ * Parse positional bitmask like "1234______________" or "_______________6______"
+ * Each position i (1-indexed) represents week/tiết i.
+ * A non-underscore char at position i means i is active.
+ */
 function parseBitmask(str, maxN) {
   if (!str) return [];
   const s = str.replace(/\s/g, '');
 
-  // Has underscores → positional bitmask
-  if (s.includes('_')) {
+  // Positional bitmask (has underscores OR is long digit string ≥6 chars)
+  if (s.includes('_') || (s.length >= 6 && /^[\d_]+$/.test(s))) {
     const out = [];
-    for (let i = 0; i < s.length && i < (maxN||99); i++) {
+    for (let i = 0; i < s.length && i < (maxN || 99); i++) {
       if (s[i] !== '_') out.push(i + 1);
     }
     return out;
   }
 
-  // Range like "1-15" or "7-11"
+  // Range "1-15"
   const rng = s.match(/^(\d+)-(\d+)$/);
   if (rng) {
     const out = [];
@@ -611,20 +626,9 @@ function parseBitmask(str, maxN) {
     return out;
   }
 
-  // Comma / space separated like "1,2,3" or "1 2 3"
-  const nums = s.match(/\d+/g);
-  if (nums && (s.includes(',') || nums.length > 1)) {
-    return nums.map(Number).filter(n => n >= 1 && n <= (maxN||99));
-  }
-
-  // Pure digit sequence (positional bitmask without underscores)
-  if (/^\d+$/.test(s) && s.length > 2) {
-    const out = [];
-    for (let i = 0; i < s.length && i < (maxN||99); i++) {
-      if (s[i] !== '0') out.push(i + 1); // non-zero = present (treating 0 as absent)
-    }
-    // If that gives suspicious result (all present), treat as individual numbers
-    return out;
+  // Comma separated "1,2,3,5"
+  if (s.includes(',')) {
+    return s.split(',').map(Number).filter(n => n >= 1 && n <= (maxN || 99));
   }
 
   // Single number
@@ -632,36 +636,100 @@ function parseBitmask(str, maxN) {
   return isNaN(n) ? [] : [n];
 }
 
-/** Return an array of ALL weeks (1..totalWks) */
 function allWeeks() {
   return Array.from({ length: totalWks }, (_, i) => i + 1);
 }
 
-/* ═══════════════════════════════════
-   MAIN TEXT PARSER
-═══════════════════════════════════ */
-function parseTKBText(raw) {
-  const warnings = [];
-  const classes  = [];
+function buildSession(code, name, credits, type, dayInfo, tiets, room, weeks) {
+  if (tiets.length === 0) return null;
+  const t0 = Math.min(...tiets), t1 = Math.max(...tiets);
+  return {
+    code, name, credits, type,
+    dayIndex: dayInfo.js, dayVN: dayInfo.vn, dayShort: dayInfo.sh,
+    tiets, room,
+    weeks: weeks.length ? weeks : allWeeks(),
+    startT: TIET[t0]?.s || '07:00',
+    endT:   TIET[t1]?.e || '11:25',
+    color: null,
+  };
+}
 
-  // ── 1. Auto-detect semester start from text
-  const sdMatch = raw.match(/tu[aâ]n\s*1\s*\(\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*\)/i);
-  if (sdMatch) {
-    const d = new Date(+sdMatch[3], +sdMatch[2]-1, +sdMatch[1]);
-    if (!isNaN(d)) {
-      semStart = d;
-      document.getElementById('semStart').value = d.toISOString().slice(0,10);
+/* ═══════════════════════════════════
+   TAB-SEPARATED PARSER (Excel / copy from spreadsheet)
+   Each row: TT | Code | Name | TC | Type | Day | TietBitmask | Room | TuanBitmask
+═══════════════════════════════════ */
+function parseTabFormat(text) {
+  const sessions = [];
+  const lines = text.split(/\r?\n/);
+
+  for (const line of lines) {
+    if (!line.includes('\t')) continue;
+    const cols = line.split('\t').map(c => c.replace(/^"|"$/g, '').trim());
+
+    // Find column with "Thứ ..."
+    const dayColIdx = cols.findIndex(c => /Thứ\s+(Hai|Ba|Tư|Tu|Năm|Nam|Sáu|Sau|Bảy|Bay)/i.test(c));
+    if (dayColIdx < 0) continue;
+
+    const dayM = cols[dayColIdx].match(/Thứ\s+(Hai|Ba|Tư|Tu|Năm|Nam|Sáu|Sau|Bảy|Bay)/i);
+    const dayInfo = parseDayWord(dayM[1]);
+    if (!dayInfo) continue;
+
+    // Columns after day: tiết bitmask, room, tuần bitmask
+    const tietStr = cols[dayColIdx + 1] || '';
+    const room    = (cols[dayColIdx + 2] || '').replace(/['"]/g, '').trim() || 'N/A';
+    const tuanStr = cols[dayColIdx + 3] || '';
+
+    // Find code before day column
+    let code = 'N/A', name = 'Môn học', credits = 0, type = 'Lý thuyết';
+    for (let i = 0; i < dayColIdx; i++) {
+      if (/^[A-Z]{2,6}\d{4,8}$/.test(cols[i])) {
+        code = cols[i];
+        // Name is the next column after code
+        name = cols[i + 1] || code;
+        // Credits: next single-digit number column
+        for (let j = i + 2; j < dayColIdx; j++) {
+          if (/^\d$/.test(cols[j])) { credits = +cols[j]; break; }
+        }
+        // Type
+        for (let j = i + 2; j < dayColIdx; j++) {
+          if (/thực\s*hành/i.test(cols[j])) { type = 'Thực hành'; break; }
+          if (/lý\s*thu?yết/i.test(cols[j])) { type = 'Lý thuyết'; break; }
+        }
+        break;
+      }
     }
+
+    const tiets = parseBitmask(tietStr, 16).filter(t => t >= 1 && t <= 15);
+    const weeks = parseBitmask(tuanStr, 22);
+
+    const s = buildSession(code, name, credits, type, dayInfo, tiets, room, weeks);
+    if (s) sessions.push(s);
   }
 
-  // ── 2. Collapse the text: join short lines so table rows become single lines
+  return sessions;
+}
+
+/* ═══════════════════════════════════
+   TEXT / SPACE-SEPARATED PARSER (PDF copy)
+═══════════════════════════════════ */
+function parseTextFormat(raw) {
+  const sessions = [];
+  const warnings = [];
+
+  // Auto-detect semester start
+  const sdM = raw.match(/tu[aâ]n\s*1\s*\(\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*\)/i);
+  if (sdM) {
+    const d = new Date(+sdM[3], +sdM[2]-1, +sdM[1]);
+    if (!isNaN(d)) { semStart = d; document.getElementById('semStart').value = d.toISOString().slice(0,10); }
+  }
+
+  // Collapse multiline rows into single lines
   const rawLines = raw.split(/\r?\n/);
   const joined = [];
   let buf = '';
   for (const l of rawLines) {
     const t = l.trim();
     if (!t) { if (buf) { joined.push(buf); buf = ''; } continue; }
-    // Start a new logical row if: line starts with a row-number + subject code, OR contains "Thứ" at start
     if (buf && (t.match(/^\d+\s+[A-Z]{2,}\d{2,}/) || t.match(/^Thứ\s+(Hai|Ba|Tư|Năm|Sáu|Bảy)/i))) {
       joined.push(buf); buf = t;
     } else {
@@ -670,135 +738,85 @@ function parseTKBText(raw) {
   }
   if (buf) joined.push(buf);
 
-  // ── 3. For each logical line that contains "Thứ [weekday]", parse it
   const dayRx = /Thứ\s+(Hai|Ba|Tư|Tu|Năm|Nam|Sáu|Sau|Bảy|Bay)/ig;
-
-  const keySet = new Set();
 
   for (const line of joined) {
     if (!dayRx.test(line)) continue;
-    dayRx.lastIndex = 0; // reset
+    dayRx.lastIndex = 0;
 
-    // There could be multiple "Thứ" in one line (shouldn't happen normally)
     let m;
     while ((m = dayRx.exec(line)) !== null) {
       const dayInfo = parseDayWord(m[1]);
       if (!dayInfo) continue;
 
-      const dayPos   = m.index;
-      const afterDay = line.slice(dayPos + m[0].length).trim();
-      const beforeDay= line.slice(0, dayPos).trim();
+      const dayPos    = m.index;
+      const afterDay  = line.slice(dayPos + m[0].length).trim();
+      const beforeDay = line.slice(0, dayPos).trim();
 
-      // ── Extract subject code
-      const codeM = beforeDay.match(/\b([A-Z]{2,6}\d{4,8})\b/) ||
-                    line.match(/\b([A-Z]{2,6}\d{4,8})\b/);
+      // Code
+      const codeM = beforeDay.match(/\b([A-Z]{2,6}\d{4,8})\b/) || line.match(/\b([A-Z]{2,6}\d{4,8})\b/);
       const code = codeM ? codeM[1] : 'N/A';
 
-      // ── Extract subject name (between code and credit digit + type)
+      // Name
       let name = '';
       if (codeM) {
-        const afterCode = beforeDay.slice(beforeDay.indexOf(codeM[0]) + codeM[0].length).trim();
-        const nmM = afterCode.match(/^(.+?)\s+\d\s+(?:Lý|Thực)/i);
-        if (nmM) {
-          name = nmM[1].trim();
-        } else {
-          // Fallback: everything after code, remove trailing single digit
-          name = afterCode.replace(/\s*\d\s*$/, '').trim();
-        }
+        const ac = beforeDay.slice(beforeDay.indexOf(codeM[0]) + codeM[0].length).trim();
+        const nmM = ac.match(/^(.+?)\s+\d\s+(?:Lý|Thực)/i);
+        name = nmM ? nmM[1].trim() : ac.replace(/\s*\d\s*$/, '').trim();
       }
       if (!name || name.length < 2) {
-        // Second fallback: text between row-number and day
         const fbM = beforeDay.match(/^\d+\s+(?:[A-Z]+\d+\s+)?(.+?)\s*\d?\s*(?:Lý|Thực)?$/i);
         if (fbM) name = fbM[1].trim();
       }
       if (!name) name = code !== 'N/A' ? code : 'Môn học';
 
-      // ── Extract credits and type
       const typeM = line.match(/(\d)\s+(Lý\s*thu?y[eế]t|Thực\s*hành)/i);
       const credits = typeM ? +typeM[1] : 0;
       const type    = /thực\s*hành/i.test(line) ? 'Thực hành' : 'Lý thuyết';
 
-      // ── Extract tiết bitmask (first [_\d]{5,} after "Thứ [day]")
-      let tiets = [];
-      let room  = 'N/A';
-      let weeks = [];
+      let tiets = [], room = 'N/A', weeks = [];
 
       const bitmaskM = afterDay.match(/([_\d]{5,})/);
       if (bitmaskM) {
         tiets = parseBitmask(bitmaskM[0], 15).filter(t => t >= 1 && t <= 15);
-
         const afterTiet = afterDay.slice(bitmaskM.index + bitmaskM[0].length).trim();
-
-        // Room: first token that looks like a room name
         const roomM = afterTiet.match(/\b([A-Z][A-Za-z0-9._-]{1,}(?:[A-Z]|\d))\b/);
         room = roomM ? roomM[1] : 'N/A';
-
-        // Tuần bitmask: after room
         if (roomM) {
           const afterRoom = afterTiet.slice(afterTiet.indexOf(roomM[0]) + roomM[0].length).trim();
           const tuanM = afterRoom.match(/([_\d]{6,})/);
           if (tuanM) weeks = parseBitmask(tuanM[0], totalWks);
         }
       } else {
-        // Fallback: look for "Tiết X-Y" style
         const trng = afterDay.match(/[Tt]i[eế]t\s*(\d+)\s*[-–]\s*(\d+)/);
-        if (trng) {
-          for (let i = +trng[1]; i <= +trng[2]; i++) tiets.push(i);
-        } else {
-          // Try plain numbers at start
-          const nums = afterDay.match(/^([\d,\s]+)/);
-          if (nums) tiets = nums[1].split(/[\s,]+/).map(Number).filter(Boolean);
-        }
-        const tuanRng = line.match(/[Tt]u[aâ]n\s*([\d,\s\-–]+)/);
-        if (tuanRng) weeks = parseBitmask(tuanRng[1]);
+        if (trng) for (let i = +trng[1]; i <= +trng[2]; i++) tiets.push(i);
         const roomM2 = afterDay.match(/\b([A-Z][A-Za-z0-9._]{2,})\b/);
         if (roomM2) room = roomM2[1];
+        const tuanRng = line.match(/[Tt]u[aâ]n\s*([\d,\s\-–]+)/);
+        if (tuanRng) weeks = parseBitmask(tuanRng[1]);
       }
 
       if (tiets.length === 0) {
-        warnings.push(`Không tìm được tiết học: "${name}". Mặc định tiết 1-5.`);
+        warnings.push(`Không tìm được tiết: "${name}". Mặc định tiết 1-5.`);
         tiets = [1,2,3,4,5];
       }
-      if (weeks.length === 0) weeks = allWeeks();
 
-      const t0 = Math.min(...tiets), t1 = Math.max(...tiets);
-      const entry = {
-        code, name, credits, type,
-        dayIndex: dayInfo.js,
-        dayVN: dayInfo.vn,
-        dayShort: dayInfo.sh,
-        tiets, room, weeks,
-        startT: TIET[t0]?.s || '07:00',
-        endT:   TIET[t1]?.e || '11:25',
-        color: null,
-      };
-
-      // Merge duplicate (same code+day+tiets) – keep union of weeks
-      const key = `${code}_${dayInfo.js}_${tiets.join(',')}`;
-      if (keySet.has(key)) {
-        const ex = classes.find(c => `${c.code}_${c.dayIndex}_${c.tiets.join(',')}` === key);
-        if (ex) { const ws = new Set([...ex.weeks, ...weeks]); ex.weeks = [...ws].sort((a,b)=>a-b); }
-      } else {
-        keySet.add(key);
-        classes.push(entry);
-      }
+      const s = buildSession(code, name, credits, type, dayInfo, tiets, room, weeks);
+      if (s) sessions.push(s);
     }
   }
 
-  if (classes.length === 0)
-    warnings.push('Không thể tự động phân tích. Vui lòng thử nhập thủ công hoặc kiểm tra định dạng TKB.');
-
-  return { classes, warnings };
+  return { sessions, warnings };
 }
 
 /* ═══════════════════════════════════
-   COLOR ASSIGNMENT
+   COLOR ASSIGNMENT (by subject name)
 ═══════════════════════════════════ */
-function assignColors(arr) {
+function assignColors(sessions) {
   const map = {}; let ci = 0;
-  return arr.map(c => {
-    if (!map[c.name]) map[c.name] = COLORS[ci++ % COLORS.length];
-    return { ...c, color: map[c.name] };
+  return sessions.map(s => {
+    if (!map[s.name]) map[s.name] = COLORS[ci++ % COLORS.length];
+    return { ...s, color: map[s.name] };
   });
 }
 
@@ -806,7 +824,6 @@ function assignColors(arr) {
    PARSE & GO STEP 2
 ═══════════════════════════════════ */
 function doParseAndNext() {
-  // Read semester config
   const dateVal = document.getElementById('semStart').value;
   if (dateVal) semStart = new Date(dateVal + 'T00:00:00');
   totalWks = parseInt(document.getElementById('totalWeeks').value) || 15;
@@ -822,23 +839,44 @@ function doParseAndNext() {
     btn.disabled = true;
 
     setTimeout(() => {
-      const { classes, warnings } = parseTKBText(txt);
       btn.innerHTML = '🔍 Phân tích TKB'; btn.disabled = false;
 
-      if (classes.length === 0) {
-        alert('Không thể phân tích TKB. Hãy thử dán lại hoặc dùng nhập thủ công!');
+      let sessions = [], warnings = [];
+
+      // Try tab-separated first (Excel format)
+      const tabSessions = parseTabFormat(txt);
+      if (tabSessions.length > 0) {
+        sessions = tabSessions;
+        // also try to extract date from text
+        const sdM = txt.match(/tu[aâ]n\s*1\s*\(\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*\)/i);
+        if (sdM) {
+          semStart = new Date(+sdM[3], +sdM[2]-1, +sdM[1]);
+          document.getElementById('semStart').value = semStart.toISOString().slice(0,10);
+        }
+      } else {
+        // Fallback to text parser
+        const res = parseTextFormat(txt);
+        sessions = res.sessions;
+        warnings = res.warnings;
+      }
+
+      if (sessions.length === 0) {
+        alert('Không thể phân tích TKB. Hãy thử dán lại hoặc dùng nhập thủ công!\n\nGợi ý: Copy từ file Excel/Google Sheets thường cho kết quả tốt hơn PDF.');
         return;
       }
-      parsed = assignColors(classes);
-      renderPreview(parsed, warnings);
+
+      allSessions = assignColors(sessions);
+      previewWeek = 1;
+      renderPreview(allSessions, warnings);
       goStep(2);
     }, 400);
 
   } else {
     const cs = getME();
     if (cs.length === 0) { alert('Vui lòng nhập ít nhất một môn!'); return; }
-    parsed = assignColors(cs);
-    renderPreview(parsed, []);
+    allSessions = assignColors(cs);
+    previewWeek = 1;
+    renderPreview(allSessions, []);
     goStep(2);
   }
 }
@@ -846,105 +884,163 @@ function doParseAndNext() {
 /* ═══════════════════════════════════
    RENDER PREVIEW
 ═══════════════════════════════════ */
-function renderPreview(classes, warnings) {
-  const uniq = [...new Map(classes.map(c=>[c.name,c])).values()];
-  const totalEvts = classes.reduce((s,c) => s + c.weeks.length, 0);
-  const totalTC   = uniq.reduce((s,c) => s + (c.credits||0), 0);
+function renderPreview(sessions, warnings) {
+  // Unique subjects by name
+  const byName = {};
+  for (const s of sessions) {
+    if (!byName[s.name]) byName[s.name] = s;
+  }
+  const uniqNames = Object.keys(byName);
+  const totalEvts = sessions.reduce((a, s) => a + s.weeks.length, 0);
+  const totalTC   = uniqNames.reduce((a, n) => a + (byName[n].credits || 0), 0);
 
   document.getElementById('parseSummary').textContent =
-    `Đã phân tích ${classes.length} buổi/tuần — ${uniq.length} môn học — ${totalEvts} sự kiện Calendar.`;
+    `Đã phân tích ${sessions.length} dòng lịch — ${uniqNames.length} môn học — ${totalEvts} sự kiện Calendar.`;
 
   // Stats
   document.getElementById('statsGrid').innerHTML = `
-    <div class="scard"><div class="sval">${uniq.length}</div><div class="slb">Môn học</div></div>
-    <div class="scard"><div class="sval">${classes.length}</div><div class="slb">Buổi/tuần</div></div>
+    <div class="scard"><div class="sval">${uniqNames.length}</div><div class="slb">Môn học</div></div>
+    <div class="scard"><div class="sval">${sessions.length}</div><div class="slb">Lịch phân bổ</div></div>
     <div class="scard"><div class="sval">${totalEvts}</div><div class="slb">Sự kiện Calendar</div></div>
     <div class="scard"><div class="sval">${totalTC}</div><div class="slb">Tín chỉ</div></div>
   `;
 
-  // Warnings
   const warnEl = document.getElementById('parseWarn');
   if (warnings && warnings.length) {
     warnEl.style.display = 'flex';
     warnEl.innerHTML = `⚠️ <div>${warnings.slice(0,5).join('<br>')}</div>`;
   } else { warnEl.style.display = 'none'; }
 
-  // Subject list
-  document.getElementById('subList').innerHTML = classes.map(c => `
+  // Subject list: group by name, show all days for that subject
+  const subGroups = {};
+  for (const s of sessions) {
+    (subGroups[s.name] = subGroups[s.name] || []).push(s);
+  }
+
+  document.getElementById('subList').innerHTML = Object.entries(subGroups).map(([name, arr]) => {
+    const color = arr[0].color;
+    const days  = [...new Set(arr.map(s => s.dayVN))].join(', ');
+    const weeks = arr.flatMap(s => s.weeks);
+    const uniqWeeks = [...new Set(weeks)].sort((a,b)=>a-b);
+    const tietRanges = [...new Set(arr.map(s => `Tiết ${s.tiets[0]}–${s.tiets[s.tiets.length-1]}`))].join(' / ');
+    const rooms = [...new Set(arr.map(s => s.room))].join(', ');
+    return `
     <div class="subitem">
-      <div class="subcol" style="background:${c.color}"></div>
+      <div class="subcol" style="background:${color}"></div>
       <div style="flex:1">
-        <div class="subname"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
+        <div class="subname"><span class="dot" style="background:${color}"></span>${name}</div>
         <div class="submeta">
-          <span>📅 ${c.dayVN}</span>
-          <span>⏰ Tiết ${c.tiets[0]}–${c.tiets[c.tiets.length-1]} &nbsp;(${c.startT}–${c.endT})</span>
-          <span>🏫 ${c.room}</span>
-          <span>📆 ${c.weeks.length} tuần</span>
-          ${c.credits ? `<span>📚 ${c.credits} TC</span>` : ''}
+          <span>📅 ${days}</span>
+          <span>⏰ ${tietRanges}</span>
+          <span>🏫 ${rooms}</span>
+          <span>📆 ${uniqWeeks.length} buổi</span>
+          ${arr[0].credits ? `<span>📚 ${arr[0].credits} TC</span>` : ''}
         </div>
       </div>
-      <span class="tag ${c.type==='Thực hành'?'tag-g':'tag-b'}">${c.type}</span>
-    </div>
-  `).join('');
+      <span class="tag ${arr[0].type==='Thực hành'?'tag-g':'tag-b'}">${arr[0].type}</span>
+    </div>`;
+  }).join('');
 
-  // Week calendar
-  renderWeekCal(classes);
+  // Setup week slider
+  const slider = document.getElementById('weekSlider');
+  slider.max = totalWks;
+  slider.value = 1;
+  previewWeek = 1;
+  updateWeekCalendar(sessions, 1);
 
   // Events summary for step 3
-  renderEvtSummary(classes);
+  renderEvtSummary(sessions);
 }
 
-function renderWeekCal(classes) {
+/* ═══════════════════════════════════
+   WEEK SLIDER
+═══════════════════════════════════ */
+function onWeekSlide(val) {
+  previewWeek = parseInt(val);
+  document.getElementById('weekLabel').textContent = `Tuần ${previewWeek}`;
+  updateWeekDateLabel(previewWeek);
+  updateWeekCalendar(allSessions, previewWeek);
+}
+
+function updateWeekDateLabel(wk) {
+  const el = document.getElementById('weekDateLabel');
+  if (!semStart) { el.textContent = ''; return; }
+  const mon = new Date(semStart.getTime() + (wk-1)*7*86400000);
+  const sat = new Date(mon.getTime() + 5*86400000);
+  const fmt = d => d.toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit' });
+  el.textContent = `📅 ${fmt(mon)} – ${fmt(sat)}`;
+}
+
+function updateWeekCalendar(sessions, week) {
+  updateWeekDateLabel(week);
+
+  // Filter: only sessions active in this week
+  const active = sessions.filter(s => s.weeks.includes(week));
+
   const dayLabels = ['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
   const dayIdxs   = [1,2,3,4,5,6];
 
   const byDay = {};
   for (const d of dayIdxs) byDay[d] = [];
-  for (const c of classes) { if (byDay[c.dayIndex]) byDay[c.dayIndex].push(c); }
+  for (const s of active) { if (byDay[s.dayIndex]) byDay[s.dayIndex].push(s); }
   for (const d of dayIdxs) byDay[d].sort((a,b) => a.startT.localeCompare(b.startT));
+
+  let anyClass = active.length > 0;
 
   let html = '<div class="wkcal">';
   for (let i = 0; i < 6; i++) {
     const d = dayIdxs[i];
-    html += `
-      <div>
-        <div class="wkday-hd">${dayLabels[i]}</div>
-        <div class="wkday-col">
-    `;
+    html += `<div>
+      <div class="wkday-hd">${dayLabels[i]}</div>
+      <div class="wkday-col">`;
     if (byDay[d].length === 0) {
       html += '<div class="wkempty">—</div>';
     } else {
-      for (const c of byDay[d]) {
-        const sn = c.name.length > 28 ? c.name.slice(0,25)+'…' : c.name;
-        html += `
-          <div class="wkblk" style="background:${c.color}1a;border-left:3px solid ${c.color}"
-               title="${c.name}\n${c.startT}–${c.endT}\n${c.room}">
-            <div class="wkblk-name" style="color:${c.color}">${sn}</div>
-            <div class="wkblk-time">${c.startT} – ${c.endT}</div>
-            <div class="wkblk-room">🏫 ${c.room}</div>
-          </div>`;
+      for (const s of byDay[d]) {
+        const nm = s.name.length > 30 ? s.name.slice(0,27)+'…' : s.name;
+        html += `<div class="wkblk"
+            style="background:${s.color}1a;border-left:3px solid ${s.color}"
+            title="${s.name}\n${s.startT}–${s.endT}\n${s.room}">
+          <div class="wkblk-name" style="color:${s.color}">${nm}</div>
+          <div class="wkblk-time">${s.startT} – ${s.endT}</div>
+          <div class="wkblk-room">🏫 ${s.room}</div>
+        </div>`;
       }
     }
     html += '</div></div>';
   }
   html += '</div>';
+
+  if (!anyClass) {
+    html = `<div style="text-align:center;padding:30px;color:var(--txt2);font-size:14px">
+      😴 Tuần ${week} không có lịch học nào.
+    </div>`;
+  }
+
   document.getElementById('wkCal').innerHTML = html;
 }
 
-function renderEvtSummary(classes) {
+/* ═══════════════════════════════════
+   EVENTS SUMMARY (Step 3)
+═══════════════════════════════════ */
+function renderEvtSummary(sessions) {
   const byName = {};
-  for (const c of classes) {
-    (byName[c.name] = byName[c.name]||[]).push(c);
-  }
+  for (const s of sessions) (byName[s.name] = byName[s.name]||[]).push(s);
   let total = 0;
-  let html = '<table class="ptable"><thead><tr><th>Môn học</th><th>Lịch học</th><th>Số sự kiện</th></tr></thead><tbody>';
+  let html = '<table class="ptable"><thead><tr><th>Môn học</th><th>Lịch phân bổ</th><th>Số buổi</th></tr></thead><tbody>';
   for (const [name, arr] of Object.entries(byName)) {
     const color = arr[0].color;
-    const sched = arr.map(c=>`${c.dayVN} Tiết ${c.tiets[0]}–${c.tiets[c.tiets.length-1]}`).join(', ');
-    const n = arr.reduce((s,c)=>s+c.weeks.length,0); total+=n;
-    html+=`<tr><td><span class="dot" style="background:${color}"></span>${name}</td><td style="color:var(--txt2)">${sched}</td><td><span class="badge">${n}</span></td></tr>`;
+    const n = arr.reduce((a,s) => a + s.weeks.length, 0); total += n;
+    const sched = arr.map(s => `${s.dayVN} ${s.startT}–${s.endT}`).join('<br>');
+    html += `<tr>
+      <td><span class="dot" style="background:${color}"></span>${name}</td>
+      <td style="color:var(--txt2);font-size:12px">${sched}</td>
+      <td><span class="badge">${n}</span></td>
+    </tr>`;
   }
-  html+=`</tbody></table><p style="margin-top:14px;font-size:13px;color:var(--txt2)">Tổng cộng <strong style="color:var(--txt)">${total} sự kiện</strong> sẽ được tạo.</p>`;
+  html += `</tbody></table><p style="margin-top:14px;font-size:13px;color:var(--txt2)">
+    Tổng cộng <strong style="color:var(--txt)">${total} sự kiện</strong> sẽ được tạo.
+  </p>`;
   document.getElementById('evtSummary').innerHTML = html;
 }
 
@@ -952,10 +1048,9 @@ function renderEvtSummary(classes) {
    ICS GENERATION
 ═══════════════════════════════════ */
 function dateForWeekDay(start, week, dayJS) {
-  // start = Monday of week 1
-  const ms = 24*60*60*1000;
+  const ms = 86400000;
   const weekMon = new Date(start.getTime() + (week-1)*7*ms);
-  const off = dayJS === 0 ? 6 : dayJS - 1; // Mon=0 … Sun=6
+  const off = dayJS === 0 ? 6 : dayJS - 1;
   return new Date(weekMon.getTime() + off*ms);
 }
 
@@ -969,68 +1064,60 @@ function icsDate(date, timeStr) {
 
 function icsNow() {
   const n = new Date();
-  return `${n.getUTCFullYear()}${String(n.getUTCMonth()+1).padStart(2,'0')}${String(n.getUTCDate()).padStart(2,'0')}T${String(n.getUTCHours()).padStart(2,'0')}${String(n.getUTCMinutes()).padStart(2,'0')}${String(n.getUTCSeconds()).padStart(2,'0')}Z`;
+  return [n.getUTCFullYear(),
+    String(n.getUTCMonth()+1).padStart(2,'0'),
+    String(n.getUTCDate()).padStart(2,'0')].join('') + 'T' +
+    [String(n.getUTCHours()).padStart(2,'0'),
+     String(n.getUTCMinutes()).padStart(2,'0'),
+     String(n.getUTCSeconds()).padStart(2,'0')].join('') + 'Z';
 }
 
 function esc(s) { return String(s).replace(/[\\;,]/g,'\\$&').replace(/\n/g,'\\n'); }
 
 function fold(line) {
-  const MAX = 75;
-  if (line.length <= MAX) return line;
+  if (line.length <= 75) return line;
   let r='', rem=line;
-  while(rem.length>MAX){ r+=rem.slice(0,MAX)+'\r\n '; rem=rem.slice(MAX); }
+  while(rem.length>75){ r+=rem.slice(0,75)+'\r\n '; rem=rem.slice(75); }
   return r+rem;
 }
 
-function generateICS(classes) {
+function generateICS(sessions) {
   const calName = document.getElementById('semName').value || 'Thời Khóa Biểu';
   const start   = semStart || new Date();
   const stamp   = icsNow();
   let uid_idx   = 1;
 
   const lines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
+    'BEGIN:VCALENDAR','VERSION:2.0',
     'PRODID:-//TKB Converter//HCMC//VN',
-    'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
+    'CALSCALE:GREGORIAN','METHOD:PUBLISH',
     `X-WR-CALNAME:${esc(calName)}`,
     'X-WR-TIMEZONE:Asia/Ho_Chi_Minh',
-    'BEGIN:VTIMEZONE',
-    'TZID:Asia/Ho_Chi_Minh',
-    'BEGIN:STANDARD',
-    'TZOFFSETFROM:+0700',
-    'TZOFFSETTO:+0700',
-    'TZNAME:ICT',
-    'DTSTART:19700101T000000',
-    'END:STANDARD',
-    'END:VTIMEZONE',
+    'BEGIN:VTIMEZONE','TZID:Asia/Ho_Chi_Minh',
+    'BEGIN:STANDARD','TZOFFSETFROM:+0700','TZOFFSETTO:+0700',
+    'TZNAME:ICT','DTSTART:19700101T000000',
+    'END:STANDARD','END:VTIMEZONE',
   ];
 
-  for (const c of classes) {
-    for (const wk of c.weeks) {
-      const dt  = dateForWeekDay(start, wk, c.dayIndex);
-      const uid = `tkb-${uid_idx++}-${c.code}-w${wk}@tkbconv`;
+  for (const s of sessions) {
+    for (const wk of s.weeks) {
+      const dt  = dateForWeekDay(start, wk, s.dayIndex);
+      const uid = `tkb-${uid_idx++}-${s.code}-w${wk}@tkbconv`;
       const desc = esc([
-        `Mã môn: ${c.code}`,
-        `Loại: ${c.type}`,
-        c.credits ? `${c.credits} tín chỉ` : '',
-        `Tiết ${c.tiets[0]}–${c.tiets[c.tiets.length-1]}`,
+        `Mã: ${s.code}`, `Loại: ${s.type}`,
+        s.credits ? `${s.credits} TC` : '',
+        `Tiết ${s.tiets[0]}–${s.tiets[s.tiets.length-1]}`,
         `Tuần ${wk}/${totalWks}`,
       ].filter(Boolean).join(' | '));
 
-      lines.push(
-        'BEGIN:VEVENT',
-        fold(`UID:${uid}`),
-        `DTSTAMP:${stamp}`,
-        fold(`DTSTART;TZID=Asia/Ho_Chi_Minh:${icsDate(dt,c.startT)}`),
-        fold(`DTEND;TZID=Asia/Ho_Chi_Minh:${icsDate(dt,c.endT)}`),
-        fold(`SUMMARY:${esc(c.name)}`),
-        fold(`LOCATION:${esc(c.room)}`),
+      lines.push('BEGIN:VEVENT',
+        fold(`UID:${uid}`), `DTSTAMP:${stamp}`,
+        fold(`DTSTART;TZID=Asia/Ho_Chi_Minh:${icsDate(dt,s.startT)}`),
+        fold(`DTEND;TZID=Asia/Ho_Chi_Minh:${icsDate(dt,s.endT)}`),
+        fold(`SUMMARY:${esc(s.name)}`),
+        fold(`LOCATION:${esc(s.room)}`),
         fold(`DESCRIPTION:${desc}`),
-        'STATUS:CONFIRMED',
-        'END:VEVENT',
-      );
+        'STATUS:CONFIRMED','END:VEVENT');
     }
   }
 
@@ -1039,18 +1126,16 @@ function generateICS(classes) {
 }
 
 function downloadICS() {
-  if (!parsed.length) { alert('Không có dữ liệu!'); return; }
-  const ics  = generateICS(parsed);
+  if (!allSessions.length) { alert('Không có dữ liệu!'); return; }
+  const ics  = generateICS(allSessions);
   const blob = new Blob([ics], { type:'text/calendar;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
   const a    = Object.assign(document.createElement('a'), { href:url, download:'ThoiKhoaBieu.ics' });
-  a.click();
-  URL.revokeObjectURL(url);
-
+  a.click(); URL.revokeObjectURL(url);
   const btn = document.getElementById('dlBtn');
   const orig = btn.innerHTML;
   btn.innerHTML = '✅ Đã tải xuống!';
-  setTimeout(()=>{ btn.innerHTML = orig; }, 3000);
+  setTimeout(() => btn.innerHTML = orig, 3000);
 }
 
 /* ═══════════════════════════════════
@@ -1061,10 +1146,8 @@ function addME() {
   const id = meCount;
   const el = document.createElement('div');
   el.className = 'me-row'; el.id = `me${id}`;
-
-  const tietOpts = Array.from({length:15},(_,i)=>
-    `<option value="${i+1}"${i===0||i===4?` ${i===4?'selected':''}`:''}>${i+1} (${TIET[i+1].s})</option>`).join('');
-
+  const tietOpts = Array.from({length:15},(_,i) =>
+    `<option value="${i+1}"${i===4?' selected':''}>${i+1} (${TIET[i+1].s})</option>`).join('');
   el.innerHTML = `
     <div class="me-hd">
       <span class="me-lbl">Môn học ${id}</span>
@@ -1083,80 +1166,74 @@ function addME() {
           <option value="3">Thứ Tư</option><option value="4">Thứ Năm</option>
           <option value="5">Thứ Sáu</option><option value="6">Thứ Bảy</option>
         </select></div>
-      <div class="fg"><label>Tiết bắt đầu</label>
-        <select class="me-ts">${tietOpts}</select></div>
-      <div class="fg"><label>Tiết kết thúc</label>
-        <select class="me-te">${tietOpts}</select></div>
+      <div class="fg"><label>Tiết bắt đầu</label><select class="me-ts">${tietOpts}</select></div>
+      <div class="fg"><label>Tiết kết thúc</label><select class="me-te">${tietOpts}</select></div>
     </div>
     <div class="frow">
       <div class="fg"><label>Phòng học</label>
-        <input class="me-room" type="text" placeholder="B.304NTT"></div>
+        <input class="me-room" type="text" placeholder="A.802NTT"></div>
       <div class="fg"><label>Số tín chỉ</label>
         <input class="me-tc" type="number" value="2" min="1" max="10"></div>
-      <div class="fg"><label>Tuần học (vd: 1-15 hoặc 2,3,5,6,7)</label>
-        <input class="me-weeks" type="text" value="1-15" placeholder="1-15"></div>
+      <div class="fg"><label>Tuần học (vd: 1-15 hoặc 2,3,5,6)</label>
+        <input class="me-weeks" type="text" value="1-15"></div>
     </div>`;
   document.getElementById('meList').appendChild(el);
 }
 
 function getME() {
-  const dayMap = {'1':{vn:'Thứ Hai',sh:'T2'},'2':{vn:'Thứ Ba',sh:'T3'},'3':{vn:'Thứ Tư',sh:'T4'},
-                  '4':{vn:'Thứ Năm',sh:'T5'},'5':{vn:'Thứ Sáu',sh:'T6'},'6':{vn:'Thứ Bảy',sh:'T7'}};
+  const dm = {'1':{vn:'Thứ Hai',sh:'T2'},'2':{vn:'Thứ Ba',sh:'T3'},'3':{vn:'Thứ Tư',sh:'T4'},
+               '4':{vn:'Thứ Năm',sh:'T5'},'5':{vn:'Thứ Sáu',sh:'T6'},'6':{vn:'Thứ Bảy',sh:'T7'}};
   const out = [];
   document.querySelectorAll('.me-row').forEach(el => {
-    const name = el.querySelector('.me-name')?.value?.trim();
-    if (!name) return;
-    const code   = el.querySelector('.me-code')?.value?.trim() || 'N/A';
-    const dayV   = el.querySelector('.me-day')?.value || '1';
-    const di     = +dayV;
-    const ts     = +el.querySelector('.me-ts')?.value || 1;
-    const te     = +el.querySelector('.me-te')?.value || 5;
-    const room   = el.querySelector('.me-room')?.value?.trim() || 'N/A';
-    const tc     = +el.querySelector('.me-tc')?.value || 0;
-    const weeksS = el.querySelector('.me-weeks')?.value || '1-15';
-    const tiets  = Array.from({length: te-ts+1},(_,i)=>ts+i);
-    const weeks  = parseBitmask(weeksS, totalWks).length ? parseBitmask(weeksS, totalWks) : allWeeks();
-    const dinf   = dayMap[dayV] || dayMap['1'];
+    const name = el.querySelector('.me-name')?.value?.trim(); if (!name) return;
+    const code = el.querySelector('.me-code')?.value?.trim() || 'N/A';
+    const dayV = el.querySelector('.me-day')?.value || '1';
+    const ts = +el.querySelector('.me-ts')?.value || 1;
+    const te = +el.querySelector('.me-te')?.value || 5;
+    const room = el.querySelector('.me-room')?.value?.trim() || 'N/A';
+    const tc   = +el.querySelector('.me-tc')?.value || 0;
+    const wStr = el.querySelector('.me-weeks')?.value || '1-15';
+    const tiets = Array.from({length: te-ts+1},(_,i)=>ts+i);
+    const weeks = parseBitmask(wStr, totalWks).length ? parseBitmask(wStr, totalWks) : allWeeks();
+    const di = dm[dayV] || dm['1'];
     out.push({
       code, name, credits:tc, type:'Lý thuyết',
-      dayIndex:di, dayVN:dinf.vn, dayShort:dinf.sh,
+      dayIndex:+dayV, dayVN:di.vn, dayShort:di.sh,
       tiets, room, weeks,
-      startT: TIET[ts]?.s||'07:00', endT: TIET[te]?.e||'11:25',
-      color: null,
+      startT: TIET[ts]?.s||'07:00', endT: TIET[te]?.e||'11:25', color:null,
     });
   });
   return out;
 }
 
 /* ═══════════════════════════════════
-   SAMPLE DATA
+   SAMPLE DATA  (dữ liệu mẫu từ ĐH Luật TP.HCM CLC48)
 ═══════════════════════════════════ */
 function loadSample() {
+  // Use tab-separated format (same as copy from Excel/portal)
   document.getElementById('tkbInput').value =
 `THỜI KHÓA BIỂU LỚP
-Học kỳ: 02 - Năm học: 2024-2025
-Lớp: 150-DS48(A) (Sĩ Số: 45) - Khoa: Khoa Luật Dân sự
-Tuần bắt đầu học kỳ: tuần 1 (17/02/2025)
+Học kỳ: 01 - Năm học: 2025-2026
+Lớp: 157-CLC48(TA) - Khoa: Luật (CLC)
+Tuần bắt đầu học kỳ: tuần 1 (18/08/2025)
 
-1 CS00301 Chủ nghĩa Xã hội khoa học 2 Lý thuyết Thứ Tư 12345_______ B.304NTT _23_567____
-2 LDD30101 Luật Đất đai 2 Lý thuyết Thứ Hai 12345_______ B.304NTT _234567_9__
-3 LHN30101 Luật Hôn nhân và gia đình 2 Lý thuyết Thứ Sáu 12345_______ B.304NTT _2345678___
-4 LHS30101 Luật Hình sự phần chung 3 Lý thuyết Thứ Hai ______78901_ B.304NTT _23456789__
-5 LHS30101 Luật Hình sự phần chung 3 Lý thuyết Thứ Sáu ______78901_ B.304NTT _23456789__
-6 LLD30103 Luật Lao động 3 Lý thuyết Thứ Hai ______78901_ B.304NTT __________23456789
-7 LLD30103 Luật Lao động 3 Lý thuyết Thứ Tư ______78901_ B.304NTT __________2________
-8 LLD30103 Luật Lao động 3 Lý thuyết Thứ Sáu ______78901_ B.304NTT __________23456789
-9 LNH30106 Luật Ngân hàng 2 Lý thuyết Thứ Sáu 12345_______ B.304NTT __________23456789
-10 LTM30301 Pháp luật thương mại hàng hóa và dịch vụ 2 Lý thuyết Thứ Hai 12345_______ B.304NTT __________23456789
-11 SHCVHT0171 Sinh hoạt lớp 1 Lý thuyết Thứ Ba 1234________ B.304NTT ___4___8___3___7___
+TT\tLớp học phần\tTên học phần\tSố TC\tLoại HP\tThứ\tTiết\tPhòng\tTuần học
+1\tCLC37701\tCross-border M&A (Pháp luật về mua bán sáp nhập)\t2\tLý thuyết\tThứ Tư\t1234______________\tA.802NTT\t_______________6______
+2\tCLC37701\tCross-border M&A (Pháp luật về mua bán sáp nhập)\t2\tLý thuyết\tThứ Sáu\t1234______________\tA.802NTT\t____________345678____
+3\tLDS31301\tIntellectual Property Law (Luật Sở hữu trí tuệ)\t2\tLý thuyết\tThứ Hai\t______7890________\tA.802NTT\t12_456789_____________
+4\tLDS31301\tIntellectual Property Law (Luật Sở hữu trí tuệ)\t2\tLý thuyết\tThứ Tư\t______7890________\tA.802NTT\t12____________________
+5\tLNH30201\tBanking Law (Luật Ngân hàng)\t2\tLý thuyết\tThứ Sáu\t______7890________\tA.802NTT\t123456789_____________
+6\tLTM31601\tInvestment Law (Luật Đầu tư)\t3\tLý thuyết\tThứ Hai\t1234______________\tA.802NTT\t12_456789_____________
+7\tLTM31601\tInvestment Law (Luật Đầu tư)\t3\tLý thuyết\tThứ Tư\t1234______________\tA.802NTT\t1234567_______________
+8\tTCC31801\tLaw on Insurance Business (Luật Kinh doanh bảo hiểm)\t2\tLý thuyết\tThứ Hai\t______7890________\tA.802NTT\t___________234567890__
+9\tTMQ32501\tWTO Law (Luật WTO)\t3\tLý thuyết\tThứ Tư\t1234______________\tA.802NTT\t_______89_____________
+10\tTMQ32501\tWTO Law (Luật WTO)\t3\tLý thuyết\tThứ Sáu\t1234______________\tA.802NTT\t1_345678______________
+11\tTTD30201\tCivil Procedure Law (Luật Tố tụng dân sự)\t2\tLý thuyết\tThứ Hai\t1234______________\tA.802NTT\t___________234567890__
+12\tSHCVHT0165\tSinh hoạt lớp\t1\tLý thuyết\tThứ Ba\t______78__________\tA.802NTT\t____________3___7_____`;
 
-Ghi chú: Ngày 17 tháng 1 năm 2025`;
-
-  document.getElementById('semStart').value   = '2025-02-17';
-  document.getElementById('totalWeeks').value = '15';
-  document.getElementById('semName').value    = 'HK2 2024-2025';
-
-  // Switch to paste tab
+  document.getElementById('semStart').value   = '2025-08-18';
+  document.getElementById('totalWeeks').value = '20';
+  document.getElementById('semName').value    = 'HK1 2025-2026';
   switchTab('paste');
 }
 
@@ -1164,13 +1241,9 @@ Ghi chú: Ngày 17 tháng 1 năm 2025`;
    INIT
 ═══════════════════════════════════ */
 (function init() {
-  // Default semester start: next Monday if no value
   const si = document.getElementById('semStart');
   if (!si.value) {
-    const today = new Date();
-    const diff  = (8 - today.getDay()) % 7 || 7;
-    const mon   = new Date(today.getTime() + diff*864e5);
-    si.value = mon.toISOString().slice(0,10);
+    si.value = '2025-08-18';
   }
 })();
 </script>
