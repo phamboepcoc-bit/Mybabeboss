@@ -11,16 +11,16 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #07071a;
-      --bg2: #0d0d28;
-      --glass: rgba(255,255,255,0.04);
-      --glass-b: rgba(255,255,255,0.09);
-      --a1: #6c63ff;
-      --a2: #4f8ef7;
-      --a3: #ff6b9d;
-      --a4: #4ecca3;
-      --txt: #eeeeff;
-      --txt2: #8890b5;
+      --bg: #0b1120;
+      --bg2: #0f172a;
+      --glass: rgba(14, 165, 233, 0.08);
+      --glass-b: rgba(14, 165, 233, 0.2);
+      --a1: #0ea5e9;
+      --a2: #38bdf8;
+      --a3: #7dd3fc;
+      --a4: #bae6fd;
+      --txt: #f8fafc;
+      --txt2: #94a3b8;
     }
 
     body {
@@ -36,9 +36,9 @@
       content: '';
       position: fixed; inset: 0;
       background:
-        radial-gradient(ellipse 60% 50% at 15% 40%, rgba(108,99,255,.18) 0%, transparent 70%),
-        radial-gradient(ellipse 50% 60% at 85% 20%, rgba(79,142,247,.16) 0%, transparent 70%),
-        radial-gradient(ellipse 40% 40% at 50% 90%, rgba(255,107,157,.10) 0%, transparent 70%);
+        radial-gradient(ellipse 60% 50% at 15% 40%, rgba(14, 165, 233, .18) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 60% at 85% 20%, rgba(56, 189, 248, .16) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 50% 90%, rgba(125, 211, 252, .10) 0%, transparent 70%);
       z-index: -1;
       animation: bgpulse 8s ease-in-out infinite alternate;
     }
@@ -374,7 +374,7 @@
       <div class="cdesc">Copy toàn bộ nội dung TKB từ PDF hoặc trang web, sau đó dán vào đây. Hệ thống sẽ tự động nhận dạng.</div>
 
       <div class="alert al-info">
-        💡 <span>Hỗ trợ <strong>ĐH Luật TP.HCM</strong> (dạng bitmask), dạng bảng tab-separated từ các trường khác. Nếu không nhận dạng được hãy dùng tab <strong>Nhập thủ công</strong>.</span>
+        💡 <span>Hãy vào file excel của bạn, copy toàn bộ thời khoá biểu (nhấn vào ô trống bất kỳ rồi CTRL A, sau đó CTRL C, rồi CTRL V vào đây).</span>
       </div>
 
       <div class="tabbar">
