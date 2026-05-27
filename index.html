@@ -569,7 +569,7 @@ const COLORS = [
 /* ── State ── */
 let allSessions = [];   // raw sessions (one per TKB row)
 let semStart    = null;
-let totalWks    = 22;
+let totalWks    = 30;
 let previewWeek = 1;
 
 /* ═══════════════════════════════════
@@ -719,7 +719,7 @@ function parseTabFormat(text) {
     }
 
     const tiets = parseBitmask(tietStr, 16).filter(t => t >= 1 && t <= 15);
-    const weeks = parseBitmask(tuanStr, 22);
+    const weeks = parseBitmask(tuanStr, totalWks);
 
     const s = buildSession(code, name, credits, type, dayInfo, tiets, room, weeks);
     if (s) sessions.push(s);
@@ -840,7 +840,7 @@ function assignColors(sessions) {
 function doParseAndNext() {
   const dateVal = document.getElementById('semStart').value;
   if (dateVal) semStart = new Date(dateVal + 'T00:00:00');
-  totalWks = 24;
+  totalWks = 30;
 
   const txt = document.getElementById('tkbInput').value.trim();
   if (!txt) { alert('Vui lòng dán nội dung TKB!'); return; }
@@ -943,12 +943,13 @@ function renderPreview(sessions, warnings) {
       </div>
       <span class="tag ${arr[0].type==='Thực hành'?'tag-g':'tag-b'}">${arr[0].type}</span>
     </div>`;
-  }).join('');
+      }).join('');
 
   // Setup week slider
   const slider = document.getElementById('weekSlider');
   slider.max = totalWks;
   slider.value = 1;
+  document.getElementById('weekLabel').textContent = 'Tuần 1';
   previewWeek = 1;
   updateWeekCalendar(sessions, 1);
 
