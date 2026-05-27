@@ -352,7 +352,7 @@
     <div class="logo-ic">📅</div>
     TKB Converter
   </div>
-  <div class="header-tag">ĐH Luật TP.HCM &amp; các trường khác</div>
+  <div class="header-tag">Đại Học Luật</div>
 </header>
 
 <div class="wrap">
@@ -363,7 +363,7 @@
       <span class="plain">Dịch </span><span class="grad">Thời Khóa Biểu</span><br>
       <span class="plain">sang Google Calendar</span>
     </h1>
-    <p>Copy toàn bộ TKB → Paste vào đây → Tải file ICS → Import vào Google Calendar. Chỉ vậy thôi! 🎉</p>
+    <p>Copy toàn bộ TKB từ PDF → Paste vào đây → Tải file ICS → Import vào Google Calendar. Chỉ vậy thôi! 🎉</p>
 
     <!-- Step bar -->
     <div class="steps">
@@ -384,13 +384,9 @@
       <div class="ctitle">⚙️ Cấu hình học kỳ</div>
       <div class="cdesc">Nhập thông tin học kỳ để xác định ngày tháng chính xác cho lịch học.</div>
       <div class="frow">
-        <div class="fg" style="flex:1">
+        <div class="fg">
           <label>📅 Ngày bắt đầu Tuần 1 <span style="background:#ff6b9d;color:white;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px;font-weight:bold;letter-spacing:0.5px;box-shadow:0 0 8px #ff6b9d;">QUAN TRỌNG</span></label>
-          <input type="date" id="semStart" style="border: 2px solid #ff6b9d; box-shadow: 0 0 12px rgba(255,107,157,0.3);">
-        </div>
-        <div class="fg" style="flex:1">
-          <label>🏫 Tên học kỳ (dùng cho lịch)</label>
-          <input type="text" id="semName" placeholder="HK2 2024-2025">
+          <input type="date" id="semStart" style="border: 2px solid #ff6b9d; box-shadow: 0 0 12px rgba(255,107,157,0.3); max-width: 300px;">
         </div>
       </div>
     </div>
@@ -444,7 +440,7 @@ Tuần bắt đầu học kỳ: tuần 1 (17/02/2025)
 
     <div class="card">
       <div class="ctitle">📅 Thời khóa biểu theo tuần</div>
-      <div class="cdesc">Chọn tuần để xem lịch học chính xác.</div>
+      <div class="cdesc">Chọn tuần để xem lịch học chính xác — mỗi tuần có thể khác nhau do môn học xoay vòng.</div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:220px">
           <span style="font-size:13px;color:var(--txt2);white-space:nowrap">Tuần:</span>
@@ -491,7 +487,7 @@ Tuần bắt đầu học kỳ: tuần 1 (17/02/2025)
           <div class="imp-n">2</div>
           <div>
             <div class="imp-title">Tạo Lịch mới (Rất quan trọng)</div>
-            <div class="imp-desc">Vào <a href="https://calendar.google.com/calendar/u/0/r/settings/createcalendar" target="_blank" style="color:var(--a2)">Trang Tạo Lịch</a>, đặt tên lịch là ví dụ <b>HK2026</b> rồi ấn <strong>Create calendar</strong>. Việc này giúp lịch học không bị trộn lẫn với lịch cá nhân.</div>
+            <div class="imp-desc">Vào <a href="https://calendar.google.com/calendar/u/0/r/settings/createcalendar" target="_blank" style="color:var(--a2)">Trang Tạo Lịch</a>, đặt tên lịch là ví dụ <b>HK2026</b> rồi ấn <strong>Create calendar</strong>.</div>
           </div>
         </div>
         <div class="imp-step">
@@ -1091,7 +1087,7 @@ function fold(line) {
 }
 
 function generateICS(sessions) {
-  const calName = document.getElementById('semName').value || 'Thời Khóa Biểu';
+  const calName = 'Thời Khóa Biểu';
   const start   = semStart || new Date();
   const stamp   = icsNow();
   let uid_idx   = 1;
@@ -1258,11 +1254,6 @@ TT\tLớp học phần\tTên học phần\tSố TC\tLoại HP\tThứ\tTiết\tPh
   const si = document.getElementById('semStart');
   if (!si.value) {
     si.value = `${yyyy}-${mm}-${dd}`;
-  }
-  
-  const sn = document.getElementById('semName');
-  if (!sn.value) {
-    sn.value = `HK${yyyy}`;
   }
 })();
 
