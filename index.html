@@ -40,11 +40,6 @@
         radial-gradient(ellipse 50% 60% at 85% 20%, rgba(56, 189, 248, .16) 0%, transparent 70%),
         radial-gradient(ellipse 40% 40% at 50% 90%, rgba(125, 211, 252, .10) 0%, transparent 70%);
       z-index: -1;
-      animation: bgpulse 8s ease-in-out infinite alternate;
-    }
-    @keyframes bgpulse {
-      from { opacity: 1; }
-      to   { opacity: .75; }
     }
 
     /* ── Header ── */
@@ -385,12 +380,7 @@
         💡 <span>Hãy vào file excel của bạn, copy toàn bộ thời khoá biểu (nhấn vào ô trống bất kỳ rồi CTRL A, sau đó CTRL C, rồi CTRL V vào đây).</span>
       </div>
 
-      <div class="tabbar">
-        <button class="tbtn active" id="tbtn-paste" onclick="switchTab('paste')">📋 Dán tự động</button>
-        <button class="tbtn" id="tbtn-manual" onclick="switchTab('manual')">✏️ Nhập thủ công</button>
-      </div>
-
-      <div class="tab-content active" id="tab-paste">
+      <div id="tab-paste">
         <textarea id="tkbInput" placeholder="Dán nội dung TKB vào đây...
 
 Ví dụ (ĐH Luật TP.HCM):
@@ -402,11 +392,6 @@ Tuần bắt đầu học kỳ: tuần 1 (17/02/2025)
 1 CS00301 Chủ nghĩa Xã hội khoa học 2 Lý thuyết Thứ Tư 12345_______ B.304NTT _23_567____
 2 LDD30101 Luật Đất đai 2 Lý thuyết Thứ Hai 12345_______ B.304NTT _234567_9__
 3 LHN30101 Luật Hôn nhân và gia đình 2 Lý thuyết Thứ Sáu 12345_______ B.304NTT _2345678___"></textarea>
-      </div>
-
-      <div class="tab-content" id="tab-manual">
-        <div id="meList"></div>
-        <button class="btn btn-s" onclick="addME()" style="margin-top:8px">＋ Thêm môn học</button>
       </div>
 
       <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
@@ -470,38 +455,35 @@ Tuần bắt đầu học kỳ: tuần 1 (17/02/2025)
         <button class="btn btn-g btn-lg" id="dlBtn" onclick="downloadICS()">
           ⬇️ Tải file ThoiKhoaBieu.ics
         </button>
-        <a class="btn btn-s btn-lg" href="https://calendar.google.com/calendar/r/settings/export" target="_blank">
-          🔗 Mở Google Calendar Import
-        </a>
       </div>
 
       <div class="imp-steps">
         <div class="imp-step">
           <div class="imp-n">1</div>
           <div>
-            <div class="imp-title">Tải file ICS về máy</div>
-            <div class="imp-desc">Bấm nút "Tải file ThoiKhoaBieu.ics" ở trên.</div>
+            <div class="imp-title">Tải file ICS</div>
+            <div class="imp-desc">Nhấn nút xanh phía trên để tải toàn bộ lịch học về máy tính.</div>
           </div>
         </div>
         <div class="imp-step">
           <div class="imp-n">2</div>
           <div>
-            <div class="imp-title">Mở Google Calendar Settings</div>
-            <div class="imp-desc">Vào <strong>calendar.google.com</strong> → Biểu tượng ⚙️ → <strong>Cài đặt</strong> → menu trái chọn <strong>Import &amp; Export</strong></div>
+            <div class="imp-title">Tạo Lịch mới (Rất quan trọng)</div>
+            <div class="imp-desc">Vào <a href="https://calendar.google.com/calendar/u/0/r/settings/createcalendar" target="_blank" style="color:var(--a2)">Trang Tạo Lịch</a>, đặt tên lịch là ví dụ <b>HK2026</b> rồi ấn <strong>Create calendar</strong>. Việc này giúp lịch học không bị trộn lẫn với lịch cá nhân.</div>
           </div>
         </div>
         <div class="imp-step">
           <div class="imp-n">3</div>
           <div>
-            <div class="imp-title">Chọn file và Import</div>
-            <div class="imp-desc">Bấm <strong>"Select file from your computer"</strong> → chọn file <code>ThoiKhoaBieu.ics</code> → bấm <strong>Import</strong>.</div>
+            <div class="imp-title">Import vào lịch vừa tạo</div>
+            <div class="imp-desc">Chuyển sang menu <a href="https://calendar.google.com/calendar/r/settings/export" target="_blank" style="color:var(--a2)">Import & Export</a>. Tải file ICS lên, và <strong>NHỚ CHỌN TÊN LỊCH VỪA TẠO</strong> ở mục Add to calendar trước khi ấn Import.</div>
           </div>
         </div>
         <div class="imp-step">
           <div class="imp-n">4</div>
           <div>
-            <div class="imp-title">Xong! 🎊</div>
-            <div class="imp-desc">Toàn bộ lịch học sẽ xuất hiện trên Google Calendar ngay lập tức!</div>
+            <div class="imp-title">Xong! 🎉</div>
+            <div class="imp-desc">Toàn bộ lịch học sẽ xuất hiện trên Google Calendar!</div>
           </div>
         </div>
       </div>
@@ -571,7 +553,6 @@ const COLORS = [
 let allSessions = [];   // raw sessions (one per TKB row)
 let semStart    = null;
 let totalWks    = 22;
-let meCount     = 0;
 let previewWeek = 1;
 
 /* ═══════════════════════════════════
@@ -586,14 +567,6 @@ function goStep(n) {
     else if (i === n) ind.classList.add('active');
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function switchTab(t) {
-  ['paste','manual'].forEach(id => {
-    document.getElementById(`tab-${id}`).classList.toggle('active', id === t);
-    document.getElementById(`tbtn-${id}`).classList.toggle('active', id === t);
-  });
-  if (t === 'manual' && meCount === 0) { addME(); addME(); }
 }
 
 /* ═══════════════════════════════════
@@ -631,7 +604,6 @@ function parseBitmask(str, maxN) {
   }
 
   // Positional bitmask
-  // Valid characters must match the sequence: 1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6...
   const outPos = [];
   let hasChars = false;
   let allMatched = true;
@@ -654,7 +626,7 @@ function parseBitmask(str, maxN) {
     return outPos;
   }
 
-  // Fallback to single number (e.g., user manually types "16")
+  // Fallback to single number
   const n = parseInt(trimmed);
   return isNaN(n) ? [] : [n];
 }
@@ -679,7 +651,6 @@ function buildSession(code, name, credits, type, dayInfo, tiets, room, weeks) {
 
 /* ═══════════════════════════════════
    TAB-SEPARATED PARSER (Excel / copy from spreadsheet)
-   Each row: TT | Code | Name | TC | Type | Day | TietBitmask | Room | TuanBitmask
 ═══════════════════════════════════ */
 function parseTabFormat(text) {
   const sessions = [];
@@ -698,7 +669,6 @@ function parseTabFormat(text) {
     const dayInfo = parseDayWord(dayM[1]);
     if (!dayInfo) continue;
 
-    // Excel merged cells create many empty tabs. Filter them out to find actual values.
     const afterDay = colsRaw.slice(dayColIdx + 1).filter(c => c.trim() !== '');
     
     let tietStr = '', room = 'N/A', tuanStr = '';
@@ -717,7 +687,6 @@ function parseTabFormat(text) {
       tietStr = afterDay[0];
     }
 
-    // Find code and details before day column
     let code = 'N/A', name = 'Môn học', credits = 0, type = 'Lý thuyết';
     const codeIdx = cols.findIndex((c, idx) => idx < dayColIdx && /^[A-Z]{2,6}\d{4,8}$/.test(c));
     
@@ -749,14 +718,12 @@ function parseTextFormat(raw) {
   const sessions = [];
   const warnings = [];
 
-  // Auto-detect semester start
   const sdM = raw.match(/tu[aâ]n\s*1\s*\(\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*\)/i);
   if (sdM) {
     const d = new Date(+sdM[3], +sdM[2]-1, +sdM[1]);
     if (!isNaN(d)) { semStart = d; document.getElementById('semStart').value = d.toISOString().slice(0,10); }
   }
 
-  // Collapse multiline rows into single lines
   const rawLines = raw.split(/\r?\n/);
   const joined = [];
   let buf = '';
@@ -786,11 +753,9 @@ function parseTextFormat(raw) {
       const afterDay  = line.slice(dayPos + m[0].length).trim();
       const beforeDay = line.slice(0, dayPos).trim();
 
-      // Code
       const codeM = beforeDay.match(/\b([A-Z]{2,6}\d{4,8})\b/) || line.match(/\b([A-Z]{2,6}\d{4,8})\b/);
       const code = codeM ? codeM[1] : 'N/A';
 
-      // Name
       let name = '';
       if (codeM) {
         const ac = beforeDay.slice(beforeDay.indexOf(codeM[0]) + codeM[0].length).trim();
@@ -803,9 +768,8 @@ function parseTextFormat(raw) {
       }
       if (!name) name = code !== 'N/A' ? code : 'Môn học';
 
-      const typeM = line.match(/(\d)\s+(Lý\s*thu?y[eế]t|Thực\s*hành)/i);
-      const credits = typeM ? +typeM[1] : 0;
-      const type    = /thực\s*hành/i.test(line) ? 'Thực hành' : 'Lý thuyết';
+      const type = /thực\s*hành/i.test(line) ? 'Thực hành' : 'Lý thuyết';
+      const credits = 0;
 
       let tiets = [], room = 'N/A', weeks = [];
 
@@ -843,7 +807,7 @@ function parseTextFormat(raw) {
 }
 
 /* ═══════════════════════════════════
-   COLOR ASSIGNMENT (by subject name)
+   COLOR ASSIGNMENT
 ═══════════════════════════════════ */
 function assignColors(sessions) {
   const map = {}; let ci = 0;
@@ -859,59 +823,49 @@ function assignColors(sessions) {
 function doParseAndNext() {
   const dateVal = document.getElementById('semStart').value;
   if (dateVal) semStart = new Date(dateVal + 'T00:00:00');
-  totalWks = parseInt(document.getElementById('totalWeeks').value) || 22;
+  totalWks = 24;
 
-  const isPaste = document.getElementById('tab-paste').classList.contains('active');
+  const txt = document.getElementById('tkbInput').value.trim();
+  if (!txt) { alert('Vui lòng dán nội dung TKB!'); return; }
+
   const btn = document.getElementById('parseBtn');
+  btn.innerHTML = '⏳ Đang phân tích...';
+  btn.disabled = true;
 
-  if (isPaste) {
-    const txt = document.getElementById('tkbInput').value.trim();
-    if (!txt) { alert('Vui lòng dán nội dung TKB!'); return; }
+  setTimeout(() => {
+    btn.innerHTML = '🔍 Phân tích TKB'; 
+    btn.disabled = false;
 
-    btn.innerHTML = '<div class="spin"></div> Đang phân tích...';
-    btn.disabled = true;
+    let sessions = [], warnings = [];
 
-    setTimeout(() => {
-      btn.innerHTML = '🔍 Phân tích TKB'; btn.disabled = false;
-
-      let sessions = [], warnings = [];
-
-      // Try tab-separated first (Excel format)
-      const tabSessions = parseTabFormat(txt);
-      if (tabSessions.length > 0) {
-        sessions = tabSessions;
-        // also try to extract date from text
-        const sdM = txt.match(/tu[aâ]n\s*1\s*\(\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*\)/i);
-        if (sdM) {
-          semStart = new Date(+sdM[3], +sdM[2]-1, +sdM[1]);
-          document.getElementById('semStart').value = semStart.toISOString().slice(0,10);
-        }
-      } else {
-        // Fallback to text parser
-        const res = parseTextFormat(txt);
-        sessions = res.sessions;
-        warnings = res.warnings;
+    // Try tab-separated first (Excel format)
+    const tabSessions = parseTabFormat(txt);
+    if (tabSessions.length > 0) {
+      sessions = tabSessions;
+      // also try to extract date from text
+      const sdM = txt.match(/tu[aâ]n\s*1\s*\(\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*\)/i);
+      if (sdM) {
+        semStart = new Date(+sdM[3], +sdM[2]-1, +sdM[1]);
+        const si = document.getElementById('semStart');
+        if(si) si.value = semStart.toISOString().slice(0,10);
       }
+    } else {
+      // Fallback to text parser
+      const res = parseTextFormat(txt);
+      sessions = res.sessions;
+      warnings = res.warnings;
+    }
 
-      if (sessions.length === 0) {
-        alert('Không thể phân tích TKB. Hãy thử dán lại hoặc dùng nhập thủ công!\n\nGợi ý: Copy từ file Excel/Google Sheets thường cho kết quả tốt hơn PDF.');
-        return;
-      }
+    if (sessions.length === 0) {
+      alert('Không thể phân tích TKB. Hãy kiểm tra lại dữ liệu vừa dán!');
+      return;
+    }
 
-      allSessions = assignColors(sessions);
-      previewWeek = 1;
-      renderPreview(allSessions, warnings);
-      goStep(2);
-    }, 400);
-
-  } else {
-    const cs = getME();
-    if (cs.length === 0) { alert('Vui lòng nhập ít nhất một môn!'); return; }
-    allSessions = assignColors(cs);
+    allSessions = assignColors(sessions);
     previewWeek = 1;
-    renderPreview(allSessions, []);
+    renderPreview(allSessions, warnings);
     goStep(2);
-  }
+  }, 400);
 }
 
 /* ═══════════════════════════════════
