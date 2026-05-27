@@ -358,15 +358,11 @@
       <div class="ctitle">⚙️ Cấu hình học kỳ</div>
       <div class="cdesc">Nhập thông tin học kỳ để xác định ngày tháng chính xác cho lịch học.</div>
       <div class="frow">
-        <div class="fg">
-          <label>📅 Ngày bắt đầu Tuần 1 (Thứ Hai)</label>
-          <input type="date" id="semStart">
+        <div class="fg" style="flex:1">
+          <label>📅 Ngày bắt đầu Tuần 1 <span style="background:#ff6b9d;color:white;padding:2px 6px;border-radius:4px;font-size:10px;margin-left:4px;font-weight:bold;letter-spacing:0.5px;box-shadow:0 0 8px #ff6b9d;">QUAN TRỌNG</span></label>
+          <input type="date" id="semStart" style="border: 2px solid #ff6b9d; box-shadow: 0 0 12px rgba(255,107,157,0.3);">
         </div>
-        <div class="fg">
-          <label>📅 Tổng số tuần học kỳ</label>
-          <input type="number" id="totalWeeks" value="22" min="1" max="30">
-        </div>
-        <div class="fg">
+        <div class="fg" style="flex:1">
           <label>🏫 Tên học kỳ (dùng cho lịch)</label>
           <input type="text" id="semName" placeholder="HK2 2024-2025">
         </div>
